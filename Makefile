@@ -1,12 +1,17 @@
 NVCC = nvcc
 CXX = g++
 
-NVCCFLAGS = -O3 \
-    -gencode arch=compute_61,code=sm_61 \
+NVCCFLAGS_BASE = -O3 \
     -gencode arch=compute_89,code=sm_89 \
     -gencode arch=compute_90,code=sm_90 \
     -gencode arch=compute_90,code=compute_90 \
     -Xcompiler -fopenmp
+
+NVCCFLAGS_XP = -O3 \
+    -gencode arch=compute_61,code=sm_61 \
+    -Xcompiler -fopenmp
+
+NVCCFLAGS ?= $(NVCCFLAGS_BASE)
 
 CXXFLAGS = -O3 -fopenmp
 

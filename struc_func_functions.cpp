@@ -20,6 +20,7 @@
 #include <unordered_map>
 // #include "cnpy.h"
 // #include <Eigen/Dense> // For vector operations
+//TODO: Fix tqdm import to use the public .cpp version
 #include </home/user/c23052501/local/include/tqdm.h> // progress bar
 
 using namespace std;
