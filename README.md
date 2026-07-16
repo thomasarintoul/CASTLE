@@ -1,9 +1,9 @@
-# `structure-functions` (Better name pending)
+# `CASTLE`: Characterisation of Astrophysical Structure and Turbulence in Localised Environments
 Written by: Thomas Rintoul - PhD Student in Computational Astrophysics at Cardiff University.
 
-## What is this code?
+## What is CASTLE?
 
-This code is designed to calculate structure functions typically used in fields such as astrophysics. I initially developed it to calculate velocity structure functions for cosmological zoom-in simulations of massive galaxies in my work on the Circumgalactic Medium.
+CASTLE is designed to calculate structure functions typically used in fields such as astrophysics. I initially developed it to calculate velocity structure functions for cosmological zoom-in simulations of massive galaxies in my work on the Circumgalactic Medium. It is however, generalisable to any 1D, 2D or 3D dataset provided the elements considered are in some sort of Cartesian co-ordinate system.
 It has been extended to allow "scalar structure functions" for properties such as Temperature to be calculated (see section below on the underlying mathematics for details).
 
 This code is written primarily in modern C++, with the option to use CUDA enabled (i.e. Nvidia) GPU(s) to speed up computation.
@@ -28,7 +28,7 @@ For CUDA runs, the code has been tested up to 8 GPUs on a single node. I cannot 
 - Unit tests
 
 ## Citation Policy
-If you use this code in any published research work, please link to this repository pending a full public release, at which point a DOI will be generated. Please note, in the event of a new name for the code, the repository name may change.
+If you use this code in any published research work, please link to this repository pending a full public release, at which point a DOI will be generated.
 
 ## Contributions
 I welcome contributions to this project, particularly if you wish to assist expanding the code to work on AMD/Intel GPUs as I do not have ready access to those for testing. Contact me via email: rintoulta {at} cardiff dot ac dot uk
