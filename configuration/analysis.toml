@@ -1,0 +1,18 @@
+[runtime]
+backend = "serial"
+# others eventually available: "openmp" "cuda" "hip" "sycl"
+cpu_threads = 1
+# ignored if backend == "serial"
+gpu_count = 0
+# ignored if backend == "serial" or "openmp"
+random_seed = 42
+
+[analysis]
+normalise = false
+method = "full"
+
+[analysis.binning]
+n_bins = 200
+bin_min = 2.0
+bin_max = 1000.0
+logarithmic = false

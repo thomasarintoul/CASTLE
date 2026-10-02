@@ -1,0 +1,4 @@
+[output]
+output_base_dir = "./"
+output_sub_dir = "structure_function/"
+output_file_prefix = "sf"

@@ -1,0 +1,5 @@
+%%
+output_dir_base         ./
+output_dir              test_outputs/
+region                  full
+output_file_prefix      test_cuda

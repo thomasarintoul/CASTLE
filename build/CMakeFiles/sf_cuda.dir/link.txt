@@ -1,0 +1,1 @@
+/usr/bin/g++ @CMakeFiles/sf_cuda.dir/objects1.rsp -o sf_cuda @CMakeFiles/sf_cuda.dir/linkLibs.rsp -L"/home/cosmos/c23052501/cuda_12.2/targets/x86_64-linux/lib/stubs" -L"/home/cosmos/c23052501/cuda_12.2/targets/x86_64-linux/lib"

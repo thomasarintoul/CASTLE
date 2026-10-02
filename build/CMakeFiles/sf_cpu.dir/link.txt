@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG CMakeFiles/sf_cpu.dir/struc_func.cpp.o CMakeFiles/sf_cpu.dir/struc_func_functions.cpp.o -o sf_cpu  /usr/lib/gcc/x86_64-linux-gnu/11/libgomp.so /usr/lib/x86_64-linux-gnu/libpthread.a

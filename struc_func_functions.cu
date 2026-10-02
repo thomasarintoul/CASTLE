@@ -154,8 +154,7 @@ __device__ int calc_j(int N_cells, long long k_stride, int i, int Ti){
 
 __device__ int find_bin(double separation, double* bins, int n_bins) {
 
-    if (separation < bins[0]) return 0;
-    if (separation >= bins[n_bins-1]) return n_bins-1;
+    if (separation < bins[0] || separation >= bins[n_bins - 1]) return -1;
 
     int left = 0;
     int right = n_bins - 1;
@@ -249,6 +248,10 @@ __global__ void vsf_kernel(
             double z_sep = pos_i.z - pos_j.z;
             double separation = sqrt(x_sep * x_sep + y_sep * y_sep + z_sep * z_sep);
 
+            // Ignore pairs outside the configured separation range.
+            if (separation < bins[0] || separation >= bins[n_bins - 1])
+                continue;
+
             // Only calculate velocity differences if velocity data is provided
             double x_vdiff = (gas_velocities != nullptr) ? vel_i.x - vel_j.x : 0.0;
             double y_vdiff = (gas_velocities != nullptr) ? vel_i.y - vel_j.y : 0.0;
@@ -284,7 +287,7 @@ __global__ void vsf_kernel(
             // add to local histograms
             int bin_index = find_bin(separation, bins, n_bins);
 
-            if (bin_index < n_bins) {
+            if (bin_index >= 0 && bin_index < n_bins) {
                 atomicAdd(&local_hist[bin_index], 1.0); // increment count for this bin
                 if (global_vsf != nullptr) { atomicAdd(&local_vsf[bin_index], v_diff); }
                 if (global_vsf_parr != nullptr) { atomicAdd(&local_vsf_parr[bin_index], v_parr_diff); }

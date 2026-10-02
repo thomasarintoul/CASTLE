@@ -1,0 +1,1 @@
+// defines the loop for CPU computation of the structure function

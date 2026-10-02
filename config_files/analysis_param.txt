@@ -1,0 +1,12 @@
+%% Comments are preceded by %
+n_bins      100
+%% provide min and max in kpc for both log and lin
+bin_min     0.5
+bin_max     550
+log_space   true
+norm        false
+%%%
+do_vsf      false
+do_vsf_parr false
+do_vsf_perp false
+do_scalar   true

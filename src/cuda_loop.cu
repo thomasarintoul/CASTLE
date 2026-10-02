@@ -1,0 +1,1 @@
+// defines the cuda loop for the structure function computation

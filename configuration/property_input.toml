@@ -1,0 +1,39 @@
+[input]
+positions = "../test_inputs/input_pos.bin"
+
+[[field]]
+name       = "velocity"
+file       = "../test_inputs/input_vector_vel.bin"
+components = 3                                        # 3 = vector, 1 = scalar
+statistics = ["magnitude", "parallel", "perpendicular"]
+orders     = [2]                                   # -> 6 histograms
+
+[[field]]
+name       = "T"
+file       = "../test_inputs/input_scalar_T.bin"
+components = 1
+orders     = [2]                                      # scalars: magnitude only
+
+[[field]]
+name       = "n_H"
+file       = "../test_inputs/input_scalar_n_H.bin"
+components = 1
+orders     = [2]
+
+[[field]]
+name       = "Z"
+file       = "../test_inputs/input_scalar_Z.bin"
+components = 1
+orders     = [2]
+
+[[field]]
+name       = "P_th"
+file       = "../test_inputs/input_scalar_P_th.bin"
+components = 1
+orders     = [2]
+
+[[field]]
+name       = "B"
+file       = "../test_inputs/input_scalar_B.bin"
+components = 1
+orders     = [2]

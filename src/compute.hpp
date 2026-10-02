@@ -1,0 +1,1 @@
+// Declare `compute_cpu()` and `compute_cuda()` here so they can be called from `main.cpp`.

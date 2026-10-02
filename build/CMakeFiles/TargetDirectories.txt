@@ -1,0 +1,4 @@
+/home/user/c23052501/CASTLE/build/CMakeFiles/sf_cpu.dir
+/home/user/c23052501/CASTLE/build/CMakeFiles/sf_cuda.dir
+/home/user/c23052501/CASTLE/build/CMakeFiles/edit_cache.dir
+/home/user/c23052501/CASTLE/build/CMakeFiles/rebuild_cache.dir
