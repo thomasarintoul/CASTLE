@@ -5,7 +5,7 @@ positions = "../test_inputs/input_pos.bin"
 name       = "velocity"
 file       = "../test_inputs/input_vector_vel.bin"
 components = 3                                        # 3 = vector, 1 = scalar
-statistics = ["magnitude", "parallel", "perpendicular"]
+statistics = ["vector", "parallel", "perpendicular"]
 orders     = [2]                                   # -> 6 histograms
 
 [[field]]
