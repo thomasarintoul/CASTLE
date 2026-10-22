@@ -1,33 +1,6 @@
-#include <algorithm>  // std::find_if
-#include <iterator>   // std::distance
-#include <cstddef>    // std::size_t
-
-
-enum class Statistic {
-    ScalarDifference,   // Used for 1D scalar properties (e.g., temperature, density, |B|)
-    // Note: When the python frontend is implemented, we will need to enable it to create e.g. |B| if B is provided for ScalarDifference
-    VectorDifference,   // Used for vector properties (e.g., velocity, B field)
-    Parallel,           // Used for vector properties, computes the component of the difference along the separation vector
-    Perpendicular       // Used for vector properties, computes the component of the difference perpendicular to the separation vector
-};
-
-enum class PropertyType {
-    Scalar, // 1 component
-    Vector  // 3 components
-};
-
-struct InputProperty {
-    std::string name;               // Name of the property (e.g., "velocity", "temperature")
-    PropertyType type;              // Type of the property (e.g., "scalar", "vector")
-    std::vector<std::size_t> components;                 // Component "columns" in the input array (1 for scalar, 3 for vector)
-};
-
-struct OutputChannel{
-    std::size_t input_property_index;  // Index of the input property in the input array
-    Statistic statistic;                // Statistic to compute for this property (e.g., ScalarDifference, VectorDifference, Parallel, Perpendicular)
-    int order;                          // Order of the statistic (e.g., 2 for second order, 3 for third order)
-    std::size_t output_histogram_index; // Index of the output histogram "column" in the output array
-};
+#include "data.hpp"
+#include "io.hpp"
+#include "config.hpp"
 
 void Properties(std::vector<InputProperty>& properties, const toml::array& fields) {
     // Input: vector of InputProperty structs already containing position;
@@ -53,6 +26,7 @@ void Properties(std::vector<InputProperty>& properties, const toml::array& field
 
         InputProperty property; // Create a new InputProperty struct for this field
         property.name = name->get();  // Set the property name
+        property.filename = field->get_as<std::string>("file")->get(); // Set the filename for the property
         property.type = (components->get() == 1) ? PropertyType::Scalar : PropertyType::Vector;  // Determine the property type based on the number of components
 
         // Based on the number of components specified, assign the appropriate component
@@ -82,7 +56,7 @@ std::vector<OutputChannel> map_output_channels(const std::vector<InputProperty>&
 
         // Each field must be represented by a TOML table
         const toml::table* field = field_node.as_table();
-        
+
         // If the field is not a table, error and move on
         if (!field) {
             std::cerr << "Expected every field entry to be a table.\n";
@@ -91,7 +65,7 @@ std::vector<OutputChannel> map_output_channels(const std::vector<InputProperty>&
 
         // Read the field name so it can be matched to an input property
         const auto name = field->get_as<std::string>("name");
-        
+
         if (!name) {
             std::cerr << "Field does not specify a name.\n";
             continue; // Skip this field and continue with the next
@@ -101,7 +75,7 @@ std::vector<OutputChannel> map_output_channels(const std::vector<InputProperty>&
         auto input_index = std::find_if(properties.begin(), properties.end(), [&](const InputProperty& prop) {
             return prop.name == *name;
         });
-        
+
         // If we get to the end of the properties vector with no match, error and move on
         if (input_index == properties.end()) {
             std::cerr << "No matching InputProperty found for field: " << *name << "\n";
@@ -137,8 +111,8 @@ std::vector<OutputChannel> map_output_channels(const std::vector<InputProperty>&
                 continue; // Skip this field and continue with the next
             }
         }
-        
-    
+
+
 
         // We create individual channels for every statistic
         for (const toml::node& statistic_node : *statistics) {
@@ -175,7 +149,7 @@ std::vector<OutputChannel> map_output_channels(const std::vector<InputProperty>&
                     channel.order = static_cast<int>(*order_value);
                     // Reserve the next available output column for this channel.
                     channel.output_histogram_index = output_histogram_index++;
-                    
+
                     // Add the populated OutputChannel struct to the output_channels vector
                     output_channels.push_back(channel);
                 } else {
@@ -185,4 +159,50 @@ std::vector<OutputChannel> map_output_channels(const std::vector<InputProperty>&
         }
     }
     return output_channels;
+}
+
+void populate_input_data(std::vector<double>& input_data, const std::vector<InputProperty>& properties, int N_part){
+    // set component offset to not overwrite position data
+    int component_offset = 3; // Start after the first three components for position (x, y, z)
+
+    // Loop through each prop in the properties vector (skipping position)
+    for (int i = 0; i < properties.size(); ++i) {
+        // Skip the first property (position) since it's already populated
+        if (properties[i].name == "position") {
+            continue;
+        }
+
+        // Print the property being processed
+        std::cout << "Populating input_data for property: " << properties[i].name << "\n";
+
+        // Read data using load_binary_doubles
+        const std::vector<double> values = load_binary_doubles(properties[i].filename, 
+                                                               N_part * properties[i].components.size());
+
+        // if size / N_part != components.size(), error
+        if (values.size() / N_part != properties[i].components.size()) {
+            throw std::runtime_error("Mismatch between number of values in file " + properties[i].filename +
+                                     " and expected number of components for property " + properties[i].name);
+        }
+        else{
+            // if size / N_part == components.size(), populate input_data with the values in the correct columns
+            // Do this by looping over components to populate the correct columns in input_data for each particle
+            // (this should work for any number of components)
+            for (std::size_t component : properties[i].components){ // for each component listed in properties[i]
+                std::cout << "Populating component " << component << " with property " << properties[i].name << "\n";
+                std::cout << "Component offset: " << component_offset << "\n";
+                std::cout << "Using column " << component - component_offset << " from file " << properties[i].filename << "\n";
+                std::cout << "-------" << "\n";
+
+                for (std::size_t particle = 0; particle < N_part; ++particle) { // loop over particles
+                    // for ith particle in jth component, values is at value[N_part * (j - N_allocated_components) + i]
+                    input_data[component * N_part + particle] = values[N_part * (component - component_offset) + particle];
+                }
+            }
+            component_offset += properties[i].components.size(); // update component offset for next property
+            }
+
+    }    
+
+
 }

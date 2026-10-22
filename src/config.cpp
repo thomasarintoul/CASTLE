@@ -4,9 +4,8 @@
 #include <string>
 #include <vector>
 #include "toml.hpp"
-// #include "../io.cpp"
+#include "io.cpp"
 #include "data.cpp"
-// Include the io.cpp file to access the BinningConfig, RuntimeConfig, and AnalysisConfig structs
 
 
 
@@ -21,12 +20,17 @@ std::vector<double> load_binary_doubles(const std::string& filename, std::size_t
      * @throws:                 std::runtime_error If the file is invalid, cannot be read, or has an
      *                          unexpected number of values.
      */
-    
+
+
+    // Open binary file
     std::ifstream file(filename, std::ios::binary | std::ios::ate);
+
+    // error if the file cannot be opened
     if (!file) {
         throw std::runtime_error("Could not open binary file: " + filename);
     }
 
+    // Get the size of the file and validate it
     const std::streamsize file_size = file.tellg();
     if (file_size < 0 || file_size % static_cast<std::streamsize>(sizeof(double)) != 0) {
         throw std::runtime_error("Binary file does not contain a whole number of doubles: " + filename);
@@ -39,10 +43,13 @@ std::vector<double> load_binary_doubles(const std::string& filename, std::size_t
                                  ", found " + std::to_string(value_count));
     }
 
+    // Read the values into a vector
     std::vector<double> values(value_count);
+    // Reset the file read position to the beginning
     file.seekg(0, std::ios::beg);
+    // Read the binary data into the vector
     file.read(reinterpret_cast<char*>(values.data()), file_size);
-    if (!file) {
+    if (!file) { // Check if the read operation was successful
         throw std::runtime_error("Failed while reading binary file: " + filename);
     }
     return values;
@@ -88,7 +95,7 @@ int calc_N_components(const toml::array& fields){
             // Get the "components" value, defaulting to 1 if not specified
             const auto* components_node = field->get_as<int64_t>("components");
             const int64_t components = components_node ? components_node->get() : 1;
-            
+
             // Add the number of components for this field to the total
             N_components += static_cast<int>(components);
         } else {
@@ -124,8 +131,8 @@ int calc_N_histograms(const toml::array& fields){
         // Calculate the number of histograms for this field based on the sizes of the "statistics" and "orders" arrays
         if (statistics && orders) {
             N_histograms += static_cast<int>(statistics->size() * orders->size());
-        } 
-        
+        }
+
         // handle lack of specification for either "statistics" or "orders"
         else {
             int stats_count;
@@ -163,7 +170,7 @@ int calc_N_histograms(const toml::array& fields){
 int main(int argc, char* argv[]) {
 
     /*
-    First, we will read in the configuration files specified in the command line arguments.    
+    First, we will read in the configuration files specified in the command line arguments.
     */
 
 
@@ -245,7 +252,7 @@ int main(int argc, char* argv[]) {
     }
 
     const std::vector<double> position_values = load_binary_doubles(*positions_filename, 0);
-    
+
     // Ensure 3D position has been provided for each particle
     // TODO: Add array handling to support 2D or 1D positions in the future - this will add zeros in place of missing dimensions as long as 1 is provided
     if (position_values.size() % 3 != 0) {
@@ -260,7 +267,7 @@ int main(int argc, char* argv[]) {
     const int N_components = calc_N_components(*fields);
     const int N_histograms = calc_N_histograms(*fields);
 
-    
+
     //TODO: Make input and output data 1D vectors which we index into
     // create a vector of vectors to hold the input data
     /// Row-major input data: columns 0-2 are positions, followed by configured fields.
@@ -269,7 +276,7 @@ int main(int argc, char* argv[]) {
     // create a vector of vectors to hold the output histograms
     int N_bins = config_analysis["analysis"]["binning"]["n_bins"].value_or(200);
     std::vector<double> output_histograms(N_bins * N_histograms, 0.0); // initialize all values to 0.0
-    
+
     // Prepare to populate arrays
     /// Fill the first three columns with the position data
     for (std::size_t particle = 0; particle < N_part; ++particle) {
@@ -277,33 +284,28 @@ int main(int argc, char* argv[]) {
             input_data[component * N_part + particle] = position_values[particle * 3 + component];
         }
     }
-    
+
     // Initialise properties array to hold the property definitions
     std::vector<InputProperty> properties;
     /// add position as this must always be in the first three columns of the input_data array
     properties.push_back({"position", PropertyType::Vector, {0, 1, 2}});
-        
 
 
-    /// To ease looping over properties, initialize the component offset to 3,
-    /// since the first three components are for position (x -> 0, y -> 1, z -> 2)
-    std::size_t component_offset = 3;
 
     /// Get the number of specified fields using fields->size() and print it to the console
     std::cout << "Number of fields: " << fields->size() << "\n";
-    
-    // Populate the "input_data" array with the values from each field specified in the configuration
+
+    // Populate the "properties" mapping array with the values from each field specified in the config file
     Properties(properties, *fields);
 
 
-
     /*
-    We will now map the output channels for each property, statistic, and order combination to 
+    We will now map the output channels for each property, statistic, and order combination to
     the corresponding input property index and output histogram index.
     */
 
     std::vector<OutputChannel> output_channels = map_output_channels(properties, *fields);
-    
+
 
     for (const auto& channel : output_channels) {
         std::cout << "Output Channel - Input Property Index: " << channel.input_property_index
@@ -311,6 +313,20 @@ int main(int argc, char* argv[]) {
                   << ", Order: " << channel.order
                   << ", Output Histogram Index: " << channel.output_histogram_index << "\n";
     }
+
+    /*
+    Print a human-readable summary of the input and output mapping
+    */
+    in_out_human_summary(properties, output_channels, output_histograms, N_components, N_histograms, N_bins);
+
+
+    /*
+    Finally, load the remaining input data from the binary files specified in 
+    the config file and populate the input_data array.
+    This follows the same pattern as creating the properties array
+    */    
+    populate_input_data(input_data, properties, N_part);
+
 }
 
 
@@ -331,7 +347,7 @@ int main(int argc, char* argv[]) {
 
 //     /// For each entry in fields
 //     for (const toml::node& field_node : *fields) {
-        
+
 //         // access it as a table
 //         const toml::table* field = field_node.as_table();
 
@@ -343,14 +359,14 @@ int main(int argc, char* argv[]) {
 
 //         /// pull out each defined property for the property
 //         // -- property name
-//         const auto name = field->get_as<std::string>("name");  
+//         const auto name = field->get_as<std::string>("name");
 //         // -- binary file containing the property values
-//         const auto filename = field->get_as<std::string>("file");  
+//         const auto filename = field->get_as<std::string>("file");
 //         // -- number of components for the property (e.g., 1 for scalar, 3 for vector)
-//         const auto components = field->get_as<int64_t>("components");  
+//         const auto components = field->get_as<int64_t>("components");
 //         // -- array of statistics to compute for the property (e.g., VSF, VSF perp, VSF parallel)
-//         const toml::array* statistics = field->get_as<toml::array>("statistics"); 
-//         // -- array of orders to compute for the property (e.g., 2nd order) 
+//         const toml::array* statistics = field->get_as<toml::array>("statistics");
+//         // -- array of orders to compute for the property (e.g., 2nd order)
 //         const toml::array* orders = field->get_as<toml::array>("orders");
 
 //         // error if any of the required properties are missing
@@ -420,7 +436,7 @@ int main(int argc, char* argv[]) {
 //     std::cout << "Loaded input array: " << N_part << " x " << N_components << "\n";
 //     std::cout << "Allocated output array: 200 x " << N_histograms << "\n";
 
-    
+
 
 //     return 0;
 // }
