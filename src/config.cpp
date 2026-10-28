@@ -1,11 +1,12 @@
 #include <iostream>
 #include <fstream>
+#include <cmath>
 #include <stdexcept>
 #include <string>
 #include <vector>
 #include "toml.hpp"
-#include "io.cpp"
-#include "data.cpp"
+// #include "io.cpp"
+// #include "data.cpp"
 
 
 
@@ -166,8 +167,21 @@ int calc_N_histograms(const toml::array& fields){
 }
 
 
+struct Core_Data{
+    std::vector<double> input_data;
+    int N_part;
+    int N_components;
+    int N_histograms;
+    std::vector<InputProperty> properties;
+    std::vector<double> output_data;
+    std::vector<OutputChannel> output_channels;
+};
 
-int main(int argc, char* argv[]) {
+
+
+
+
+Core_Data configure_analysis(int argc, char* argv[]) {
 
     /*
     First, we will read in the configuration files specified in the command line arguments.
@@ -185,8 +199,7 @@ int main(int argc, char* argv[]) {
         std::cout << config_analysis << "\n";
     }
     catch (const toml::parse_error& err) {
-        std::cerr << "Parsing failed:\n" << err << "\n";
-        return 1;
+        throw std::runtime_error("Parsing failed:\n" + std::string(err.what()));
     }
 
     // Print config_analysis to the console for verification
@@ -201,8 +214,7 @@ int main(int argc, char* argv[]) {
         std::cout << config_properties << "\n";
     }
     catch (const toml::parse_error& err) {
-        std::cerr << "Parsing failed:\n" << err << "\n";
-        return 1;
+        throw std::runtime_error("Parsing failed:\n" + std::string(err.what()));
     }
 
     // Read in Output Config file
@@ -211,8 +223,7 @@ int main(int argc, char* argv[]) {
         std::cout << config_output << "\n";
     }
     catch (const toml::parse_error& err) {
-        std::cerr << "Parsing failed:\n" << err << "\n";
-        return 1;
+        throw std::runtime_error("Parsing failed:\n" + std::string(err.what()));
     }
 
 
@@ -223,15 +234,13 @@ int main(int argc, char* argv[]) {
     }
 
     if (!field_node) {
-        std::cerr << "Missing key 'field'/'fields' in property_input.toml\n";
-        return 1;
+        throw std::runtime_error("Missing key 'field'/'fields' in property_input.toml");
     }
 
     const toml::array* fields = field_node->as_array();
 
     if (!fields) {
-        std::cerr << "'field'/'fields' exists but is not an array\n";
-        return 1;
+        throw std::runtime_error("'field'/'fields' exists but is not an array");
     }
 
 
@@ -247,8 +256,7 @@ int main(int argc, char* argv[]) {
     // Load the positions from the binary file specified in the configuration
     const auto positions_filename = config_properties["input"]["positions"].value<std::string>();
     if (!positions_filename) {
-        std::cerr << "Expected input.positions to be a string.\n";
-        return 1;
+        throw std::runtime_error("Expected input.positions to be a string.");
     }
 
     const std::vector<double> position_values = load_binary_doubles(*positions_filename, 0);
@@ -256,8 +264,7 @@ int main(int argc, char* argv[]) {
     // Ensure 3D position has been provided for each particle
     // TODO: Add array handling to support 2D or 1D positions in the future - this will add zeros in place of missing dimensions as long as 1 is provided
     if (position_values.size() % 3 != 0) {
-        std::cerr << "The positions file must contain 3 doubles per particle.\n";
-        return 1;
+        throw std::runtime_error("The positions file must contain 3 doubles per particle.");
     }
 
     // Calculate the number of particles, components, and histograms based on the loaded data and configuration
@@ -274,8 +281,30 @@ int main(int argc, char* argv[]) {
     std::vector<double> input_data(N_part * N_components, 0.0); // initialize all values to 0.0
 
     // create a vector of vectors to hold the output histograms
-    int N_bins = config_analysis["analysis"]["binning"]["n_bins"].value_or(200);
-    std::vector<double> output_histograms(N_bins * N_histograms, 0.0); // initialize all values to 0.0
+    const auto binning = config_analysis["analysis"]["binning"].as_table();
+    const int N_bins = binning ? binning->get_as<int64_t>("n_bins")->get() : 200;
+    const double bin_min = binning ? binning->get_as<double>("bin_min")->get() : 0.0;
+    const double bin_max = binning ? binning->get_as<double>("bin_max")->get() : 1.0;
+    const bool logarithmic = binning
+        ? binning->get_as<bool>("logarithmic")->value_or(false)
+        : false;
+
+    if (N_bins < 2 || bin_min >= bin_max ||
+        (logarithmic && (bin_min <= 0.0 || bin_max <= 0.0))) {
+        throw std::runtime_error("Invalid analysis.binning configuration.");
+    }
+
+    // Storage contains bin edges, pair counts, then one row per requested statistic.
+    std::vector<double> output_histograms(
+        static_cast<std::size_t>(N_bins) * (N_histograms + 2), 0.0);
+    const double step = logarithmic
+        ? (std::log(bin_max) - std::log(bin_min)) / (N_bins - 1)
+        : (bin_max - bin_min) / (N_bins - 1);
+    for (int bin = 0; bin < N_bins; ++bin) {
+        output_histograms[bin] = logarithmic
+            ? std::exp(std::log(bin_min) + step * bin)
+            : bin_min + step * bin;
+    }
 
     // Prepare to populate arrays
     /// Fill the first three columns with the position data
@@ -327,6 +356,17 @@ int main(int argc, char* argv[]) {
     */    
     populate_input_data(input_data, properties, N_part);
 
+    // Combine all the relevant data into a Core_Data struct to return from this function
+    Core_Data core_data;
+    core_data.input_data = input_data;
+    core_data.N_part = N_part;
+    core_data.N_components = N_components;
+    core_data.N_histograms = N_histograms;
+    core_data.properties = properties;
+    core_data.output_data = output_histograms;
+    core_data.output_channels = output_channels;
+    
+    return core_data;
 }
 
 
