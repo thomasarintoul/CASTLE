@@ -169,7 +169,7 @@ int calc_N_histograms(const toml::array& fields){
 
 struct Core_Data{
     std::vector<double> input_data;
-    int N_part;
+    std::size_t N_part;
     int N_components;
     int N_histograms;
     std::vector<InputProperty> properties;

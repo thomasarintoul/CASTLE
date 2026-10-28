@@ -161,7 +161,7 @@ std::vector<OutputChannel> map_output_channels(const std::vector<InputProperty>&
     return output_channels;
 }
 
-void populate_input_data(std::vector<double>& input_data, const std::vector<InputProperty>& properties, int N_part){
+void populate_input_data(std::vector<double>& input_data, const std::vector<InputProperty>& properties, std::size_t N_part){
     // set component offset to not overwrite position data
     int component_offset = 3; // Start after the first three components for position (x, y, z)
 
