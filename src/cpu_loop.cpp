@@ -159,7 +159,7 @@ void run_cpu_sf(
     std::cout << "\n";
 
     // TODO: Remove this testing limit later.
-    N_part = std::min<std::size_t>(N_part, 100000);
+    N_part = std::min<std::size_t>(N_part, 10000);
 
 
     // Total number of unique pairs (i, j) with i < j: N * (N - 1) / 2.
