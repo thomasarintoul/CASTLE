@@ -177,3 +177,83 @@ double compute_statistic(const std::vector<double>& input_data,
             throw std::invalid_argument("Unknown statistic type.");
     }
 }
+
+void process_pairs(std::size_t pair_start, std::size_t pair_end,
+                   const std::vector<double>& input_data,
+                   std::size_t N_part,
+                   const int N_components,
+                   const int N_histograms,
+                   const std::vector<InputProperty>& properties,
+                   std::vector<double>& output_data,
+                   std::vector<OutputChannel>& output_channels) {
+
+    // Loop over pairs, calculate i and j from the pair index, and compute the structure function for each pair
+    int last_reported_percent = 0;
+    for (std::size_t pair_index = pair_start; pair_index < pair_end; ++pair_index) {
+        if (pair_index % 10000000 == 0){
+            const std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+            std::cout << "Time: " << std::put_time(std::localtime(&now), "%Y-%m-%d %H:%M:%S")
+                      << " - Processing pair index: " << pair_index << " of " << pair_end << "\n";
+        }
+
+
+        // Calculate i and j from the pair index
+        std::size_t i = static_cast<std::size_t>(
+            std::floor(
+                (2.0 * N_part - 1.0 - std::sqrt((2.0 * N_part - 1.0) * (2.0 * N_part - 1.0) - 8.0 * pair_index)) / 2.0
+            )
+        );
+        std::size_t j = i + 1 + (pair_index  - (i * (2 * N_part - i - 1) / 2));
+
+    //// Loop over all pairs of particles to compute structure functions
+    //// for (int i = 0; i < N_part; ++i) {
+    ////     for (int j = i + 1; j < N_part; ++j) {
+
+        // Get the positions of particles i and j
+        // Note: by definition, x y z are the first three components of the input_data array
+        std::array<double, 3> pos_i = {input_data[N_part*0 + i], input_data[N_part*1 + i], input_data[N_part*2 + i]};
+        std::array<double, 3> pos_j = {input_data[N_part*0 + j], input_data[N_part*1 + j], input_data[N_part*2 + j]};
+
+
+        // Compute distance and other relevant quantities between particle i and j
+        const int storage_rows = N_histograms + 2;
+        const int N_bins = output_data.size() / storage_rows;
+        const std::vector<double> bin_edges(output_data.begin(), output_data.begin() + N_bins);
+
+        double distance = calc_separation(pos_i, pos_j);
+        int bin_index = find_bin(distance, bin_edges, N_bins); //TODO: define bin_edges and N_bins within this scope
+        if (bin_index < 0) {
+            continue;
+        }
+
+
+        // Increment the relevant histogram count (counts is always the first "column" after bins in zeroth "column")
+        output_data[N_bins * 1 + bin_index] += 1;
+
+
+        // For each property-order-statistic combination, compute the
+        // relevant quantity and update the corresponding histogram
+        for (const OutputChannel& channel : output_channels) {
+            // get the input property index for this channel
+            std::size_t input_property_index = channel.input_property_index;
+
+            // get statistic and order for this channel
+            Statistic statistic = channel.statistic;
+            int order = channel.order;
+
+            // get the output histogram index for this channel
+            std::size_t output_histogram_index = channel.output_histogram_index;
+
+            // get the input components for this channel
+            std::vector<size_t> input_components = properties[input_property_index].components;
+
+
+            // Compute the relevant quantity based on the statistic and order
+            double value = compute_statistic(input_data, N_part, i, j, input_components, statistic, order);
+            
+            // Add the computed value to the appropriate histogram in the output_data array
+            output_data[N_bins * (2 + output_histogram_index) + bin_index] += value;
+
+        }
+    }
+}
