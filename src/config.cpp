@@ -175,6 +175,9 @@ struct Core_Data{
     std::vector<InputProperty> properties;
     std::vector<double> output_data;
     std::vector<OutputChannel> output_channels;
+    toml::table config_analysis;
+    toml::table config_properties;
+    toml::table config_output;
 };
 
 
@@ -365,6 +368,9 @@ Core_Data configure_analysis(int argc, char* argv[]) {
     core_data.properties = properties;
     core_data.output_data = output_histograms;
     core_data.output_channels = output_channels;
+    core_data.config_analysis = config_analysis;
+    core_data.config_properties = config_properties;
+    core_data.config_output = config_output;
     
     return core_data;
 }
