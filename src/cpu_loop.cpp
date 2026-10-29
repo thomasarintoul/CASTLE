@@ -2,6 +2,7 @@
 #include <fstream>
 #include <chrono>
 #include <ctime>
+#include <iomanip>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -23,7 +24,15 @@ void process_pairs(std::size_t pair_start, std::size_t pair_end,
                    std::vector<OutputChannel>& output_channels) {
 
     // Loop over pairs, calculate i and j from the pair index, and compute the structure function for each pair
+    int last_reported_percent = 0;
     for (std::size_t pair_index = pair_start; pair_index < pair_end; ++pair_index) {
+        if (pair_index % 1000000 == 0){
+            const std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+            std::cout << "Time: " << std::put_time(std::localtime(&now), "%Y-%m-%d %H:%M:%S")
+                      << " - Processing pair index: " << pair_index << " of " << pair_end << "\n";
+        }
+
+
         // Calculate i and j from the pair index
         std::size_t i = static_cast<std::size_t>(
             std::floor(
@@ -146,8 +155,8 @@ void run_cpu_sf(
     }
     std::cout << "\n";
 
-    //TODO: Remove this later
-    N_part = 1000;
+    // TODO: Remove this testing limit later.
+    N_part = std::min<std::size_t>(N_part, 1000);
 
 
     // Total number of unique pairs (i, j) with i < j: N * (N - 1) / 2.
@@ -177,6 +186,8 @@ void run_cpu_sf(
     // TODO: Implement parallelization here, e.g., using OpenMP or std::thread to divide the pair processing across multiple threads.
     std::size_t pair_start = 0;
     std::size_t pair_end = total_pairs;
+
+    std::cout << "Processing pairs from " << pair_start << " to " << pair_end << " using " << N_threads << " thread(s).\n";
 
     process_pairs(pair_start, pair_end,
                  input_data,
@@ -272,6 +283,14 @@ int main(int argc, char* argv[]) {
         }
         std::cout << "\n";
     }
+
+    write_to_files(core_data.output_data, 
+                   core_data.output_data.size() / (core_data.N_histograms + 2), 
+                   core_data.N_histograms, 
+                   core_data.properties, 
+                   core_data.output_channels, 
+                   core_data.config_output);
+
 
     // Return 0 to indicate successful execution
     return 0;
