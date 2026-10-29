@@ -1,4 +1,4 @@
 [output]
-output_base_dir = "./"
-output_sub_dir = "structure_function/"
-output_file_prefix = "sf"
+output_base_dir = "/home/user/c23052501/CASTLE/"
+output_sub_dir = "test_outputs/"
+output_file_prefix = "sf_test"

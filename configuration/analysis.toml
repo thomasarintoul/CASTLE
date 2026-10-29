@@ -15,4 +15,4 @@ method = "full"
 n_bins = 200
 bin_min = 2.0
 bin_max = 1000.0
-logarithmic = false
+logarithmic = true
