@@ -6,6 +6,9 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <omp.h>
+#include <algorithm>
+#include <cstdint>
 #include "toml.hpp"
 #include "io.cpp"
 #include "data.cpp"
@@ -26,7 +29,7 @@ void process_pairs(std::size_t pair_start, std::size_t pair_end,
     // Loop over pairs, calculate i and j from the pair index, and compute the structure function for each pair
     int last_reported_percent = 0;
     for (std::size_t pair_index = pair_start; pair_index < pair_end; ++pair_index) {
-        if (pair_index % 1000000 == 0){
+        if (pair_index % 10000000 == 0){
             const std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
             std::cout << "Time: " << std::put_time(std::localtime(&now), "%Y-%m-%d %H:%M:%S")
                       << " - Processing pair index: " << pair_index << " of " << pair_end << "\n";
@@ -156,7 +159,7 @@ void run_cpu_sf(
     std::cout << "\n";
 
     // TODO: Remove this testing limit later.
-    N_part = std::min<std::size_t>(N_part, 1000);
+    N_part = std::min<std::size_t>(N_part, 100000);
 
 
     // Total number of unique pairs (i, j) with i < j: N * (N - 1) / 2.
@@ -181,22 +184,36 @@ void run_cpu_sf(
         thread_output_data.assign(1, output_data);
     }
 
+    #pragma omp parallel num_threads(N_threads)
+    {
+        // Get the thread ID and total number of threads
+        const int thread_id = omp_get_thread_num();
+        const int total_threads = omp_get_num_threads();
+        // Calculate number of pairs per thread (excl. remainder)
+        const std::size_t pairs_per_thread = total_pairs / total_threads;
+        // Calculate the remainder pairs that need to be distributed among the first few threads
+        const std::size_t remainder_pairs = total_pairs % total_threads;
+        
+        const std::size_t pair_start = thread_id * pairs_per_thread + \
+                                       std::min<std::size_t>(thread_id, remainder_pairs);
+        const std::size_t pair_end = pair_start + pairs_per_thread + \
+                                     (thread_id < remainder_pairs ? 1 : 0);
 
+        std::cout << "Thread " << thread_id << " processing pairs from " << pair_start << " to " << pair_end << "\n";
 
-    // TODO: Implement parallelization here, e.g., using OpenMP or std::thread to divide the pair processing across multiple threads.
-    std::size_t pair_start = 0;
-    std::size_t pair_end = total_pairs;
-
-    std::cout << "Processing pairs from " << pair_start << " to " << pair_end << " using " << N_threads << " thread(s).\n";
-
-    process_pairs(pair_start, pair_end,
+        process_pairs(pair_start, pair_end,
                  input_data,
                  N_part,
                  N_components,
                  N_histograms,
                  properties,
-                 thread_output_data[0],  // Use the first thread's output data for now
+                 thread_output_data[thread_id],  // Use the current thread's output data
                  output_channels);
+
+
+    }
+
+
 
     // After processing, combine results of all threads into the main output_data array
     // In the case of single threaded, this effectively copies the results from thread_output_data[0] to output_data
@@ -240,7 +257,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-
+    int N_threads = core_data.config_analysis["analysis"]["n_threads"].value_or(1);
     // Call the function to run the CPU structure function computation
     run_cpu_sf(core_data.input_data,         // 2D array of input data (N_part x N_components)
                core_data.N_part,             // N of elements in the input data (number of particles)
@@ -248,7 +265,8 @@ int main(int argc, char* argv[]) {
                core_data.N_histograms,       // N of output hists (i.e. number stat-order-prop combinations)
                core_data.properties,         // vector of InputProperty structs defining input properties
                core_data.output_data,        // 2D array to hold the computed histograms (N_histograms x N_bins)
-               core_data.output_channels);   // mapping of output channels to input and output histogram indices
+               core_data.output_channels,
+               N_threads);   // mapping of output channels to input and output histogram indices
 
 
     // Print the first 10 values of each row of the output_data array for verification

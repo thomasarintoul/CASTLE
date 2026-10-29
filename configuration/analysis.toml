@@ -10,6 +10,7 @@ random_seed = 42
 [analysis]
 normalise = false
 method = "full"
+n_threads = 8
 
 [analysis.binning]
 n_bins = 200
