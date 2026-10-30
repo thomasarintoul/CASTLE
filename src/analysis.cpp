@@ -1,4 +1,4 @@
-double calc_separation(const std::array<double, 3>& pos_i, const std::array<double, 3>& pos_j) {
+__host__ __device__ double calc_separation(const std::array<double, 3>& pos_i, const std::array<double, 3>& pos_j) {
     /**
      * Calculate the Euclidean distance between two 3D positions.
      *
@@ -12,7 +12,7 @@ double calc_separation(const std::array<double, 3>& pos_i, const std::array<doub
     return std::sqrt(dx * dx + dy * dy + dz * dz);
 }
 
-std::vector<double> get_position_vector(const std::vector<double>& input_data, 
+__host__ __device__ std::vector<double> get_position_vector(const std::vector<double>& input_data, 
                                         const size_t N_part, 
                                         const size_t i) {
     /**
@@ -29,8 +29,7 @@ std::vector<double> get_position_vector(const std::vector<double>& input_data,
     return {input_data[N_part * 0 + i], input_data[N_part * 1 + i], input_data[N_part * 2 + i]};
 }
 
-
-std::vector<double> calc_sep_vector(const std::vector<double>& input_data, 
+__host__ __device__ std::vector<double> calc_sep_vector(const std::vector<double>& input_data, 
                                     const size_t N_part, 
                                     const size_t i, const size_t j) {
     /**
@@ -52,9 +51,7 @@ std::vector<double> calc_sep_vector(const std::vector<double>& input_data,
     return {dx, dy, dz};
 }
 
-
-
-int find_bin(double separation, const std::vector<double>& bins, int n_bins) {
+__host__ __device__ int find_bin(double separation, const std::vector<double>& bins, int n_bins) {
 
     if (separation < bins[0] || separation >= bins[n_bins - 1]) return -1;
 
@@ -73,9 +70,7 @@ int find_bin(double separation, const std::vector<double>& bins, int n_bins) {
     return left;
 }
 
-
-
-double compute_statistic(const std::vector<double>& input_data,
+__host__ __device__ double compute_statistic(const std::vector<double>& input_data,
                          const size_t N_part,
                          const size_t i,
                          const size_t j,
@@ -178,6 +173,40 @@ double compute_statistic(const std::vector<double>& input_data,
     }
 }
 
+__host__ __device__ std::vector<std::size_t> calc_i_j(std::size_t pair_index, std::size_t N_part) {
+    /**
+     * Calculate the particle indices i and j from a given pair index.
+     *
+     * @param pair_index: The index of the particle pair.
+     * @param N_part: Total number of particles.
+     * @return: A vector containing the indices [i, j] of the particle pair.
+     */
+    std::size_t i = static_cast<std::size_t>(
+        std::floor(
+            (2.0 * N_part - 1.0 - std::sqrt((2.0 * N_part - 1.0) * (2.0 * N_part - 1.0) - 8.0 * pair_index)) / 2.0
+        )
+    );
+    std::size_t j = i + 1 + (pair_index  - (i * (2 * N_part - i - 1) / 2));
+    return {i, j};
+}
+
+__host__ __device__ std::array<double, 3> get_position(const std::vector<double>& input_data, 
+                                    const size_t N_part, 
+                                    const size_t i) {
+    /**
+     * Extract the position vector for a given particle index.
+     *
+     * @param input_data    : 1D vector containing the input data (flattened 2D array).
+     * @param N_part        : Total number of particles.
+     * @param i             : Index of the particle.
+     * @return              : An array containing the position components [x, y, z] for particle i.
+     */
+
+    // We assume that the first three components of input data are
+    // position by construction in config.cpp
+    return {input_data[N_part * 0 + i], input_data[N_part * 1 + i], input_data[N_part * 2 + i]};
+}
+
 void process_pairs(std::size_t pair_start, std::size_t pair_end,
                    const std::vector<double>& input_data,
                    std::size_t N_part,
@@ -189,6 +218,7 @@ void process_pairs(std::size_t pair_start, std::size_t pair_end,
 
     // Loop over pairs, calculate i and j from the pair index, and compute the structure function for each pair
     int last_reported_percent = 0;
+
     for (std::size_t pair_index = pair_start; pair_index < pair_end; ++pair_index) {
         if (pair_index % 10000000 == 0){
             const std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
@@ -198,21 +228,14 @@ void process_pairs(std::size_t pair_start, std::size_t pair_end,
 
 
         // Calculate i and j from the pair index
-        std::size_t i = static_cast<std::size_t>(
-            std::floor(
-                (2.0 * N_part - 1.0 - std::sqrt((2.0 * N_part - 1.0) * (2.0 * N_part - 1.0) - 8.0 * pair_index)) / 2.0
-            )
-        );
-        std::size_t j = i + 1 + (pair_index  - (i * (2 * N_part - i - 1) / 2));
-
-    //// Loop over all pairs of particles to compute structure functions
-    //// for (int i = 0; i < N_part; ++i) {
-    ////     for (int j = i + 1; j < N_part; ++j) {
+        std::vector<std::size_t> indices = calc_i_j(pair_index, N_part);
+        std::size_t i = indices[0];
+        std::size_t j = indices[1];
 
         // Get the positions of particles i and j
         // Note: by definition, x y z are the first three components of the input_data array
-        std::array<double, 3> pos_i = {input_data[N_part*0 + i], input_data[N_part*1 + i], input_data[N_part*2 + i]};
-        std::array<double, 3> pos_j = {input_data[N_part*0 + j], input_data[N_part*1 + j], input_data[N_part*2 + j]};
+        std::array<double, 3> pos_i = get_position(input_data, N_part, i);
+        std::array<double, 3> pos_j = get_position(input_data, N_part, j);
 
 
         // Compute distance and other relevant quantities between particle i and j
@@ -234,26 +257,18 @@ void process_pairs(std::size_t pair_start, std::size_t pair_end,
         // For each property-order-statistic combination, compute the
         // relevant quantity and update the corresponding histogram
         for (const OutputChannel& channel : output_channels) {
-            // get the input property index for this channel
+            // Get config values for prop-stat-order calculation
             std::size_t input_property_index = channel.input_property_index;
-
-            // get statistic and order for this channel
             Statistic statistic = channel.statistic;
             int order = channel.order;
-
-            // get the output histogram index for this channel
             std::size_t output_histogram_index = channel.output_histogram_index;
-
-            // get the input components for this channel
             std::vector<size_t> input_components = properties[input_property_index].components;
-
 
             // Compute the relevant quantity based on the statistic and order
             double value = compute_statistic(input_data, N_part, i, j, input_components, statistic, order);
             
             // Add the computed value to the appropriate histogram in the output_data array
             output_data[N_bins * (2 + output_histogram_index) + bin_index] += value;
-
         }
     }
 }

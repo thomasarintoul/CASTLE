@@ -30,6 +30,7 @@ struct InputProperty {
     std::string name;               // Name of the property (e.g., "velocity", "temperature")
     PropertyType type;              // Type of the property (e.g., "scalar", "vector")
     std::string filename;           // Binary file containing the property values
+    //TODO: Make this compatible with GPU device code
     std::vector<std::size_t> components;                 // Component "columns" in the input array (1 for scalar, 3 for vector)
 };
 

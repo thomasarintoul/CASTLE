@@ -25,7 +25,7 @@ __device__ void run_cuda_sf(
     const std::vector<InputProperty>& properties,                  // vector of InputProperty structs defining the properties to compute
     std::vector<double>& output_data,                  // 2D array to hold the computed histograms (N_histograms x N_bins)
     std::vector<OutputChannel>& output_channels,  // mapping of output channels to input and output histogram indices
-    int N_threads = 1
+    int N_gpus = 1                                // number of GPUs to use (default is 1)  
 ) {
 
     if (N_histograms < 0 || output_data.empty()) {
@@ -82,47 +82,124 @@ __device__ void run_cuda_sf(
     const std::uint64_t total_pairs   = num_particles * (num_particles - 1) / 2;
     int last_reported_percent = -1;  // -1 so the first iteration always prints
 
-    // If N_threads > 1, we will divide the total pairs into chunks for each thread to process
-    std::vector<std::vector<double>> thread_output_data;
-    if (N_threads > 1) {
-        // Create local output arrays for each thread to avoid race conditions
+    // If N_gpus > 1, we will divide the total pairs into chunks for each GPU to process
+    std::vector<std::vector<double>> per_gpu_output_data;
+    if (N_gpus > 1) {
+        // Create local output arrays for each GPU to avoid race conditions
         // Each local array is initialised to zero
-        thread_output_data.assign(N_threads, std::vector<double>(output_data.size(), 0.0));
+        per_gpu_output_data.assign(N_gpus, std::vector<double>(output_data.size(), 0.0));
 
-        // Copy bin edges from the main output_data array to each thread's local output array
-        for (int thread_id = 0; thread_id < N_threads; ++thread_id) {
-            std::copy(output_data.begin(), output_data.begin() + N_bins, thread_output_data[thread_id].begin());
+        // Copy bin edges from the main output_data array to each GPU's local output array
+        for (int gpu_id = 0; gpu_id < N_gpus; ++gpu_id) {
+            std::copy(output_data.begin(), output_data.begin() + N_bins, per_gpu_output_data[gpu_id].begin());
         }
     } else {
-        // If only one thread, we can use the main output_data array directly
-        thread_output_data.assign(1, output_data);
+        // If only one GPU, we can use the main output_data array directly
+        per_gpu_output_data.assign(1, output_data);
     }
 
-    #pragma omp parallel num_threads(N_threads)
+    #pragma omp parallel num_threads(N_gpus)
     {
-        // Get the thread ID and total number of threads
-        const int thread_id = omp_get_thread_num();
-        const int total_threads = omp_get_num_threads();
-        // Calculate number of pairs per thread (excl. remainder)
-        const std::size_t pairs_per_thread = total_pairs / total_threads;
-        // Calculate the remainder pairs that need to be distributed among the first few threads
-        const std::size_t remainder_pairs = total_pairs % total_threads;
+        const int gpu_id = omp_get_thread_num();
+        cudaSetDevice(gpu_id);  // Set the current thread to use the correct GPU
+        cudaError_t err = cudaGetLastError();
+        if (err != cudaSuccess) {
+            std::cerr << "CUDA error on GPU " << gpu_id << ": " << cudaGetErrorString(err) << std::endl;
+            return;
+        }
+
+        double* d_input_data = nullptr;
+        double* d_output_data = nullptr;
+        double* d_properties = nullptr;
+        double* d_output_channels = nullptr;
+
+        cudaMalloc(&d_input_data, input_data.size() * sizeof(double));
+        cudaMalloc(&d_output_data, per_gpu_output_data[gpu_id].size() * sizeof(double));
+        cudaMalloc(&d_properties, properties.size() * sizeof(double));
+        cudaMalloc(&d_output_channels, output_channels.size() * sizeof(double));
+
+        cudaMemcpy(d_input_data, 
+                   input_data.data(), 
+                   input_data.size() * sizeof(double), 
+                   cudaMemcpyHostToDevice);
+        cudaMemcpy(d_output_data, 
+                   per_gpu_output_data[gpu_id].data(), 
+                   per_gpu_output_data[gpu_id].size() * sizeof(double), 
+                   cudaMemcpyHostToDevice);
+        cudaMemcpy(d_properties, 
+                   properties.data(), 
+                   properties.size() * sizeof(double), 
+                   cudaMemcpyHostToDevice);
+        cudaMemcpy(d_output_channels, 
+                   output_channels.data(), 
+                   output_channels.size() * sizeof(double), 
+                   cudaMemcpyHostToDevice);
+        std::cout << "GPU " << gpu_id << ": copied data to device memory.\n";
+
+
+        // Kernel Config (per GPU)
+
+        int blockSize = 256;  // Number of threads per block
+        int numSM;
+        cudaDeviceGetAttribute(&numSM, cudaDevAttrMultiProcessorCount, gpu_id);
+        // TODO: Benchmark with different grid size factors
+        int gridSize = numSM * 8;  // Number of blocks in the grid
+
+        // Calculate number of pairs per GPU (excl. remainder)
+        const std::size_t pairs_per_gpu = total_pairs / N_gpus;
+        // Calculate the remainder pairs that need to be distributed among the first few GPUs
+        const std::size_t remainder_pairs = total_pairs % N_gpus;
         
-        const std::size_t pair_start = thread_id * pairs_per_thread + \
-                                       std::min<std::size_t>(thread_id, remainder_pairs);
-        const std::size_t pair_end = pair_start + pairs_per_thread + \
-                                     (thread_id < remainder_pairs ? 1 : 0);
+        const std::size_t pair_start = gpu_id * pairs_per_gpu + \
+                                       std::min<std::size_t>(gpu_id, remainder_pairs);
+        const std::size_t pair_end = pair_start + pairs_per_gpu + \
+                                     (gpu_id < remainder_pairs ? 1 : 0);
 
-        std::cout << "Thread " << thread_id << " processing pairs from " << pair_start << " to " << pair_end << "\n";
 
-        process_pairs(pair_start, pair_end,
-                 input_data,
-                 N_part,
-                 N_components,
-                 N_histograms,
-                 properties,
-                 thread_output_data[thread_id],  // Use the current thread's output data
-                 output_channels);
+        std::cout << "GPU " << gpu_id << " processing pairs from " << pair_start << " to " << pair_end << "\n";
+
+
+        // Launch the kernel to process pairs on the GPU
+        process_pairs_kernel<<<gridSize, blockSize>>>(
+            pair_start,
+            pair_end,
+            d_input_data,
+            N_part,
+            N_components,
+            N_histograms,
+            d_properties,
+            d_output_data,
+            d_output_channels
+        );
+
+        // Check for kernel launch errors
+        cudaError_t err = cudaGetLastError();
+        if (err != cudaSuccess)
+            std::cerr << "GPU " << gpu << " kernel launch error: " << cudaGetErrorString(err) << "\n";
+
+
+        cudaDeviceSynchronize();
+
+        // Copy the results back to the host
+        cudaMemcpy(per_gpu_output_data[gpu_id].data(),
+                   d_output_data,
+                   per_gpu_output_data[gpu_id].size() * sizeof(double),
+                   cudaMemcpyDeviceToHost);
+
+        err = cudaGetLastError();
+        if (err != cudaSuccess)
+            std::cerr << "GPU " << gpu << " kernel execution error: " << cudaGetErrorString(err) << "\n";
+
+        // Copy back the per-GPU output array 
+        cudaMemcpy(per_gpu_output_data[gpu_id].data(),
+                   d_output_data,
+                   per_gpu_output_data[gpu_id].size() * sizeof(double),
+                   cudaMemcpyDeviceToHost);
+
+        cudaFree(d_input_data);
+        cudaFree(d_output_data);
+        cudaFree(d_properties);
+        cudaFree(d_output_channels);
 
 
     }
@@ -132,10 +209,10 @@ __device__ void run_cuda_sf(
     // After processing, combine results of all threads into the main output_data array
     // In the case of single threaded, this effectively copies the results from thread_output_data[0] to output_data
     // For multi-threaded, this sums the results from all threads into the main output_data array
-    for (int thread_id = 0; thread_id < N_threads; ++thread_id) {
+    for (int gpu_id = 0; gpu_id < N_gpus; ++gpu_id) {
         // Loop over all rows except the bin edges (row 0), which are already handled
         for (std::size_t idx = N_bins; idx < output_data.size(); ++idx) {
-            output_data[idx] += thread_output_data[thread_id][idx];
+            output_data[idx] += per_gpu_output_data[gpu_id][idx];
         }
     }
 
