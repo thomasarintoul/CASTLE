@@ -72,14 +72,13 @@ void run_cpu_sf(
     std::cout << "\n";
 
     // TODO: Remove this testing limit later.
-    N_part = std::min<std::size_t>(N_part, 10000);
+    N_part = std::min<std::size_t>(N_part, 100000);
 
 
     // Total number of unique pairs (i, j) with i < j: N * (N - 1) / 2.
     // Use 64-bit integers because this overflows int quickly (N = 100,000 gives ~5 billion).
     const std::uint64_t num_particles = static_cast<std::uint64_t>(N_part);
     const std::uint64_t total_pairs   = num_particles * (num_particles - 1) / 2;
-    int last_reported_percent = -1;  // -1 so the first iteration always prints
 
     // If N_threads > 1, we will divide the total pairs into chunks for each thread to process
     std::vector<std::vector<double>> thread_output_data;
@@ -115,7 +114,7 @@ void run_cpu_sf(
         std::cout << "Thread " << thread_id << " processing pairs from " << pair_start << " to " << pair_end << "\n";
 
         process_pairs(pair_start, pair_end,
-                 input_data,
+                 input_data.data(),
                  N_part,
                  N_components,
                  N_histograms,
@@ -139,5 +138,4 @@ void run_cpu_sf(
     }
 
 }
-
 

@@ -206,3 +206,19 @@ void populate_input_data(std::vector<double>& input_data, const std::vector<Inpu
 
 
 }
+
+
+std::vector<DeviceProperty> conv_device_prop(const std::vector<InputProperty>& properties) {
+    std::vector<DeviceProperty> device_properties(properties.size());
+    
+    for (int p = 0; p < properties.size(); ++p) {
+        device_properties[p].type = properties[p].type;
+        device_properties[p].n_components = static_cast<int>(properties[p].components.size());
+
+        for (int c = 0; c < device_properties[p].n_components; ++c) {
+            device_properties[p].components[c] =
+                (c < device_properties[p].n_components) ? properties[p].components[c] : 0;
+        }
+    }
+    return device_properties;
+}

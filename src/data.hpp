@@ -34,6 +34,12 @@ struct InputProperty {
     std::vector<std::size_t> components;                 // Component "columns" in the input array (1 for scalar, 3 for vector)
 };
 
+struct DeviceProperty {
+    PropertyType type;              // Type of the property (e.g., "scalar", "vector")
+    int n_components;               // Number of components (1 for scalar, 3 for vector)
+    std::size_t components[3];      // Component "columns" in the input array
+};
+
 struct OutputChannel{
     std::size_t input_property_index;  // Index of the input property in the input array
     Statistic statistic;                // Statistic to compute for this property (e.g., ScalarDifference, VectorDifference, Parallel, Perpendicular)
@@ -41,6 +47,14 @@ struct OutputChannel{
     std::size_t output_histogram_index; // Index of the output histogram "column" in the output array
 };
 
+
+struct Pair_Index{
+    std::size_t i;
+    std::size_t j;
+};
+
 inline void Properties(std::vector<InputProperty>& properties, const toml::array& fields);
 
 inline std::vector<OutputChannel> map_output_channels(const std::vector<InputProperty>& properties, const toml::array& fields);
+
+std::vector<DeviceProperty> conv_device_prop(const std::vector<InputProperty>& properties);

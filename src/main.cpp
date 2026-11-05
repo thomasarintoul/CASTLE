@@ -13,8 +13,12 @@
 #include "io.cpp"
 #include "data.cpp"
 #include "config.cpp"
+#ifndef __CUDACC__
 #include "analysis.cpp"
 #include "cpu_loop.cpp"
+#else
+#include "cuda_loop.cu"
+#endif
 
 
 int main(int argc, char* argv[]) {    
@@ -28,20 +32,56 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // TODO: Select backend (CPU or GPU [initially CUDA only but later for AMD/Intel])
-
+    std::string backend;
+    #ifdef __CUDACC__
+        std::cout << "CUDA backend selected.\n";
+        backend = "cuda";
+    #else
+        std::cout << "CPU backend selected.\n";
+        backend = "cpu";
+    #endif
     
-    int N_threads = core_data.config_analysis["analysis"]["n_threads"].value_or(1);
-    // Call the function to run the CPU structure function computation
-    run_cpu_sf(core_data.input_data,         // 2D array of input data (N_part x N_components)
-               core_data.N_part,             // N of elements in the input data (number of particles)
-               core_data.N_components,       // N of input data components (3 for vectors, 1 for scalars)
-               core_data.N_histograms,       // N of output hists (i.e. number stat-order-prop combinations)
-               core_data.properties,         // vector of InputProperty structs defining input properties
-               core_data.output_data,        // 2D array to hold the computed histograms (N_histograms x N_bins)
-               core_data.output_channels,
-               N_threads);   // mapping of output channels to input and output histogram indices
+    if (backend == "cpu") {
+        std::cout << "Running CPU structure function computation...\n";
+    } else if (backend == "cuda") {
+        std::cout << "Running CUDA structure function computation...\n";
+    } else {
+        std::cerr << "Unsupported backend: " << backend << "\n";
+        return 1;
+    }
 
+    #ifndef __CUDACC__
+    if (backend == "cpu"){
+        int N_threads = core_data.config_analysis["analysis"]["n_threads"].value_or(1);
+        // Call the function to run the CPU structure function computation
+        run_cpu_sf(core_data.input_data,         // 2D array of input data (N_part x N_components)
+                core_data.N_part,             // N of elements in the input data (number of particles)
+                core_data.N_components,       // N of input data components (3 for vectors, 1 for scalars)
+                core_data.N_histograms,       // N of output hists (i.e. number stat-order-prop combinations)
+                core_data.properties,         // vector of InputProperty structs defining input properties
+                core_data.output_data,        // 2D array to hold the computed histograms (N_histograms x N_bins)
+                core_data.output_channels,
+                N_threads);   // mapping of output channels to input and output histogram indices
+    }
+    #endif
+#ifdef __CUDACC__
+    if (backend == "cuda"){
+        int N_gpus = core_data.config_analysis["analysis"]["n_gpus"].value_or(1);
+        // Call the function to run the CUDA structure function computation
+        run_cuda_sf(core_data.input_data,              // 2D array of input data (N_part x N_components)
+                    core_data.N_part,                           // number of particles
+                    core_data.N_components,                     // number of components in the input data
+                    core_data.N_histograms,                     // number of histograms to compute
+                    core_data.properties,                  // vector of InputProperty structs defining the properties to compute
+                    core_data.output_data,                  // 2D array to hold the computed histograms (N_histograms x N_bins)
+                    core_data.output_channels,  // mapping of output channels to input and output histogram indices
+                    N_gpus);
+    }
+#endif
+    else {
+        std::cerr << "Unsupported backend: " << backend << "\n";
+        return 1;
+    }
 
     // Print the first 10 values of each row of the output_data array for verification
     std::cout << "\n========== Output Data Summary ==========" << "\n";

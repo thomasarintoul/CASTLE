@@ -1,4 +1,14 @@
-__host__ __device__ double calc_separation(const std::array<double, 3>& pos_i, const std::array<double, 3>& pos_j) {
+#include "compatibility.h"
+#include <array>
+#include <chrono>
+#include <cmath>
+#include <cstddef>
+#include <ctime>
+#include <iomanip>
+#include <iostream>
+#include <vector>
+
+HD double calc_separation(const std::array<double, 3>& pos_i, const std::array<double, 3>& pos_j) {
     /**
      * Calculate the Euclidean distance between two 3D positions.
      *
@@ -12,7 +22,7 @@ __host__ __device__ double calc_separation(const std::array<double, 3>& pos_i, c
     return std::sqrt(dx * dx + dy * dy + dz * dz);
 }
 
-__host__ __device__ std::vector<double> get_position_vector(const std::vector<double>& input_data, 
+HD std::array<double, 3> get_position_vector(const double* input_data, 
                                         const size_t N_part, 
                                         const size_t i) {
     /**
@@ -29,7 +39,7 @@ __host__ __device__ std::vector<double> get_position_vector(const std::vector<do
     return {input_data[N_part * 0 + i], input_data[N_part * 1 + i], input_data[N_part * 2 + i]};
 }
 
-__host__ __device__ std::vector<double> calc_sep_vector(const std::vector<double>& input_data, 
+HD std::array<double, 3> calc_sep_vector(const double* input_data, 
                                     const size_t N_part, 
                                     const size_t i, const size_t j) {
     /**
@@ -51,7 +61,7 @@ __host__ __device__ std::vector<double> calc_sep_vector(const std::vector<double
     return {dx, dy, dz};
 }
 
-__host__ __device__ int find_bin(double separation, const std::vector<double>& bins, int n_bins) {
+HD int find_bin(double separation, const double* bins, int n_bins) {
 
     if (separation < bins[0] || separation >= bins[n_bins - 1]) return -1;
 
@@ -70,11 +80,11 @@ __host__ __device__ int find_bin(double separation, const std::vector<double>& b
     return left;
 }
 
-__host__ __device__ double compute_statistic(const std::vector<double>& input_data,
+HD double compute_statistic(const double* input_data,
                          const size_t N_part,
                          const size_t i,
                          const size_t j,
-                         const std::vector<size_t> input_components,
+                         const std::size_t* input_components,
                          const Statistic statistic,
                          const int order) {
     /**
@@ -126,7 +136,7 @@ __host__ __device__ double compute_statistic(const std::vector<double>& input_da
             double value_j_z = input_data[N_part * input_components[2] + j];
 
             // Compute the separation vector
-            std::vector<double> sep_vector = calc_sep_vector(input_data, N_part, i, j);
+            std::array<double, 3> sep_vector = calc_sep_vector(input_data, N_part, i, j);
 
             // Compute the dot product of the difference vector and the separation vector
             double dot_product = (value_i_x - value_j_x) * sep_vector[0] +
@@ -152,13 +162,13 @@ __host__ __device__ double compute_statistic(const std::vector<double>& input_da
             double value_j_z = input_data[N_part * input_components[2] + j];
 
             // Compute the separation vector
-            std::vector<double> sep_vector = calc_sep_vector(input_data, N_part, i, j);
+            std::array<double, 3> sep_vector = calc_sep_vector(input_data, N_part, i, j);
         
             // Compute the difference vector
-            std::vector<double> diff_vector = {value_i_x - value_j_x, value_i_y - value_j_y, value_i_z - value_j_z};
+            std::array<double, 3> diff_vector = {value_i_x - value_j_x, value_i_y - value_j_y, value_i_z - value_j_z};
 
             // Get a vector perpendicular to the separation vector (in 2D, we can use a simple rotation)
-            std::vector<double> normal_vector = {-sep_vector[1], sep_vector[0], 0.0};
+            std::array<double, 3> normal_vector = {-sep_vector[1], sep_vector[0], 0.0};
 
             // Compute perpendicular component
             double perpendicular_component = std::sqrt(
@@ -169,11 +179,12 @@ __host__ __device__ double compute_statistic(const std::vector<double>& input_da
             return std::pow(perpendicular_component, order);
         }
         default:
-            throw std::invalid_argument("Unknown statistic type.");
+            return 0.0;
     }
 }
 
-__host__ __device__ std::vector<std::size_t> calc_i_j(std::size_t pair_index, std::size_t N_part) {
+
+HD Pair_Index calc_i_j(std::size_t pair_index, std::size_t N_part) {
     /**
      * Calculate the particle indices i and j from a given pair index.
      *
@@ -190,7 +201,7 @@ __host__ __device__ std::vector<std::size_t> calc_i_j(std::size_t pair_index, st
     return {i, j};
 }
 
-__host__ __device__ std::array<double, 3> get_position(const std::vector<double>& input_data, 
+HD std::array<double, 3> get_position(const double* input_data, 
                                     const size_t N_part, 
                                     const size_t i) {
     /**
@@ -207,8 +218,8 @@ __host__ __device__ std::array<double, 3> get_position(const std::vector<double>
     return {input_data[N_part * 0 + i], input_data[N_part * 1 + i], input_data[N_part * 2 + i]};
 }
 
-void process_pairs(std::size_t pair_start, std::size_t pair_end,
-                   const std::vector<double>& input_data,
+H void process_pairs(std::size_t pair_start, std::size_t pair_end,
+                   const double* input_data,
                    std::size_t N_part,
                    const int N_components,
                    const int N_histograms,
@@ -217,7 +228,12 @@ void process_pairs(std::size_t pair_start, std::size_t pair_end,
                    std::vector<OutputChannel>& output_channels) {
 
     // Loop over pairs, calculate i and j from the pair index, and compute the structure function for each pair
-    int last_reported_percent = 0;
+    // int last_reported_percent = 0;
+    
+    // Compute distance and other relevant quantities between particle i and j
+    const int storage_rows = N_histograms + 2;
+    const int N_bins = output_data.size() / storage_rows;
+    const double* bin_edges = output_data.data();
 
     for (std::size_t pair_index = pair_start; pair_index < pair_end; ++pair_index) {
         if (pair_index % 10000000 == 0){
@@ -228,9 +244,13 @@ void process_pairs(std::size_t pair_start, std::size_t pair_end,
 
 
         // Calculate i and j from the pair index
-        std::vector<std::size_t> indices = calc_i_j(pair_index, N_part);
-        std::size_t i = indices[0];
-        std::size_t j = indices[1];
+        Pair_Index indices = calc_i_j(pair_index, N_part);
+        std::size_t i = indices.i;
+        std::size_t j = indices.j;
+
+        if (i >= N_part || j >= N_part || j <= i) {
+            continue;
+        }
 
         // Get the positions of particles i and j
         // Note: by definition, x y z are the first three components of the input_data array
@@ -238,10 +258,6 @@ void process_pairs(std::size_t pair_start, std::size_t pair_end,
         std::array<double, 3> pos_j = get_position(input_data, N_part, j);
 
 
-        // Compute distance and other relevant quantities between particle i and j
-        const int storage_rows = N_histograms + 2;
-        const int N_bins = output_data.size() / storage_rows;
-        const std::vector<double> bin_edges(output_data.begin(), output_data.begin() + N_bins);
 
         double distance = calc_separation(pos_i, pos_j);
         int bin_index = find_bin(distance, bin_edges, N_bins); //TODO: define bin_edges and N_bins within this scope
@@ -262,7 +278,7 @@ void process_pairs(std::size_t pair_start, std::size_t pair_end,
             Statistic statistic = channel.statistic;
             int order = channel.order;
             std::size_t output_histogram_index = channel.output_histogram_index;
-            std::vector<size_t> input_components = properties[input_property_index].components;
+            const std::size_t* input_components = properties[input_property_index].components.data();
 
             // Compute the relevant quantity based on the statistic and order
             double value = compute_statistic(input_data, N_part, i, j, input_components, statistic, order);

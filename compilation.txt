@@ -1,0 +1,4 @@
+g++ -std=c++17 -O3 -fopenmp main.cpp -lgomp -o castle_cpu.out
+
+
+/home/cosmos/c23052501/cuda_12.2/bin/nvcc -x cu -arch=sm_61 -std=c++17 --expt-relaxed-constexpr -DTOML_RETURN_BOOL_FROM_FOR_EACH_BROKEN=1 -DTOML_RETURN_BOOL_FROM_FOR_EACH_BROKEN_ACKNOWLEDGED -Xcompiler -fopenmp main.cpp -lgomp -o castle_cuda.out

@@ -10,14 +10,14 @@
 #include <algorithm>
 #include <cstdint>
 #include "toml.hpp"
+#include "analysis.cu"
 
 
 
-// defines the loop for CUDA computation of the structure function
-
-
-// TODO: Rewrite this function for CUDA - currently it is a CPU OpenMP version
-__device__ void run_cuda_sf(
+// Defines the host-side orchestration for CUDA computation of the structure function.
+// This function validates inputs, prepares device buffers, launches the kernel, and
+// combines the per-GPU results.
+void run_cuda_sf(
     const std::vector<double>& input_data,              // 2D array of input data (N_part x N_components)
     std::size_t N_part,                           // number of particles
     const int N_components,                     // number of components in the input data
@@ -72,23 +72,24 @@ __device__ void run_cuda_sf(
     }
     std::cout << "\n";
 
+    // Convert InputProperty to DeviceProperty for device-side use
+    std::vector<DeviceProperty> device_properties = conv_device_prop(properties);
+    
     // TODO: Remove this testing limit later.
-    N_part = std::min<std::size_t>(N_part, 10000);
-
-
+    N_part = std::min<std::size_t>(N_part, 100000);
+    
+    
     // Total number of unique pairs (i, j) with i < j: N * (N - 1) / 2.
     // Use 64-bit integers because this overflows int quickly (N = 100,000 gives ~5 billion).
     const std::uint64_t num_particles = static_cast<std::uint64_t>(N_part);
     const std::uint64_t total_pairs   = num_particles * (num_particles - 1) / 2;
-    int last_reported_percent = -1;  // -1 so the first iteration always prints
-
     // If N_gpus > 1, we will divide the total pairs into chunks for each GPU to process
     std::vector<std::vector<double>> per_gpu_output_data;
     if (N_gpus > 1) {
         // Create local output arrays for each GPU to avoid race conditions
         // Each local array is initialised to zero
         per_gpu_output_data.assign(N_gpus, std::vector<double>(output_data.size(), 0.0));
-
+        
         // Copy bin edges from the main output_data array to each GPU's local output array
         for (int gpu_id = 0; gpu_id < N_gpus; ++gpu_id) {
             std::copy(output_data.begin(), output_data.begin() + N_bins, per_gpu_output_data[gpu_id].begin());
@@ -98,6 +99,8 @@ __device__ void run_cuda_sf(
         per_gpu_output_data.assign(1, output_data);
     }
 
+
+
     #pragma omp parallel num_threads(N_gpus)
     {
         const int gpu_id = omp_get_thread_num();
@@ -105,18 +108,19 @@ __device__ void run_cuda_sf(
         cudaError_t err = cudaGetLastError();
         if (err != cudaSuccess) {
             std::cerr << "CUDA error on GPU " << gpu_id << ": " << cudaGetErrorString(err) << std::endl;
-            return;
         }
+
 
         double* d_input_data = nullptr;
         double* d_output_data = nullptr;
-        double* d_properties = nullptr;
-        double* d_output_channels = nullptr;
+        // double* d_properties = nullptr;
+        DeviceProperty* d_device_properties = nullptr;
+        OutputChannel* d_output_channels = nullptr;
 
         cudaMalloc(&d_input_data, input_data.size() * sizeof(double));
         cudaMalloc(&d_output_data, per_gpu_output_data[gpu_id].size() * sizeof(double));
-        cudaMalloc(&d_properties, properties.size() * sizeof(double));
-        cudaMalloc(&d_output_channels, output_channels.size() * sizeof(double));
+        cudaMalloc(&d_device_properties, device_properties.size() * sizeof(DeviceProperty));
+        cudaMalloc(&d_output_channels, output_channels.size() * sizeof(OutputChannel));
 
         cudaMemcpy(d_input_data, 
                    input_data.data(), 
@@ -126,13 +130,13 @@ __device__ void run_cuda_sf(
                    per_gpu_output_data[gpu_id].data(), 
                    per_gpu_output_data[gpu_id].size() * sizeof(double), 
                    cudaMemcpyHostToDevice);
-        cudaMemcpy(d_properties, 
-                   properties.data(), 
-                   properties.size() * sizeof(double), 
+        cudaMemcpy(d_device_properties, 
+                   device_properties.data(), 
+                   device_properties.size() * sizeof(DeviceProperty), 
                    cudaMemcpyHostToDevice);
         cudaMemcpy(d_output_channels, 
                    output_channels.data(), 
-                   output_channels.size() * sizeof(double), 
+                   output_channels.size() * sizeof(OutputChannel), 
                    cudaMemcpyHostToDevice);
         std::cout << "GPU " << gpu_id << ": copied data to device memory.\n";
 
@@ -166,29 +170,25 @@ __device__ void run_cuda_sf(
             d_input_data,
             N_part,
             N_components,
+            N_bins, 
             N_histograms,
-            d_properties,
+            d_device_properties,
             d_output_data,
-            d_output_channels
+            d_output_channels,
+            output_channels.size()
         );
 
         // Check for kernel launch errors
-        cudaError_t err = cudaGetLastError();
+        err = cudaGetLastError();
         if (err != cudaSuccess)
-            std::cerr << "GPU " << gpu << " kernel launch error: " << cudaGetErrorString(err) << "\n";
+            std::cerr << "GPU " << gpu_id << " kernel launch error: " << cudaGetErrorString(err) << "\n";
 
 
         cudaDeviceSynchronize();
 
-        // Copy the results back to the host
-        cudaMemcpy(per_gpu_output_data[gpu_id].data(),
-                   d_output_data,
-                   per_gpu_output_data[gpu_id].size() * sizeof(double),
-                   cudaMemcpyDeviceToHost);
-
         err = cudaGetLastError();
         if (err != cudaSuccess)
-            std::cerr << "GPU " << gpu << " kernel execution error: " << cudaGetErrorString(err) << "\n";
+            std::cerr << "GPU " << gpu_id << " kernel execution error: " << cudaGetErrorString(err) << "\n";
 
         // Copy back the per-GPU output array 
         cudaMemcpy(per_gpu_output_data[gpu_id].data(),
@@ -198,7 +198,7 @@ __device__ void run_cuda_sf(
 
         cudaFree(d_input_data);
         cudaFree(d_output_data);
-        cudaFree(d_properties);
+        cudaFree(d_device_properties);
         cudaFree(d_output_channels);
 
 
@@ -217,5 +217,3 @@ __device__ void run_cuda_sf(
     }
 
 }
-
-
