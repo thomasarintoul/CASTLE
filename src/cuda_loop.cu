@@ -99,8 +99,12 @@ void run_cuda_sf(
         per_gpu_output_data.assign(1, output_data);
     }
 
+    const auto gpu_loop_start = std::chrono::system_clock::now();
+    const std::time_t gpu_loop_start_time = std::chrono::system_clock::to_time_t(gpu_loop_start);
+    std::cout << "Starting GPU loop at "
+              << std::put_time(std::localtime(&gpu_loop_start_time), "%F %T") << "\n";
 
-
+    
     #pragma omp parallel num_threads(N_gpus)
     {
         const int gpu_id = omp_get_thread_num();
@@ -138,8 +142,12 @@ void run_cuda_sf(
                    output_channels.data(), 
                    output_channels.size() * sizeof(OutputChannel), 
                    cudaMemcpyHostToDevice);
-        std::cout << "GPU " << gpu_id << ": copied data to device memory.\n";
-
+        
+        const auto copy_completed = std::chrono::system_clock::now();
+        const std::time_t copy_completed_time = std::chrono::system_clock::to_time_t(copy_completed);
+        std::cout << "GPU " << gpu_id << ": copied data to device memory at "
+              << std::put_time(std::localtime(&copy_completed_time), "%F %T") << "\n";
+        
 
         // Kernel Config (per GPU)
 
@@ -161,7 +169,12 @@ void run_cuda_sf(
 
 
         std::cout << "GPU " << gpu_id << " processing pairs from " << pair_start << " to " << pair_end << "\n";
-
+        
+        
+        const auto starting_kernel = std::chrono::system_clock::now();
+        const std::time_t starting_kernel_time = std::chrono::system_clock::to_time_t(starting_kernel);
+        std::cout << "GPU " << gpu_id << ": starting kernel at "
+              << std::put_time(std::localtime(&starting_kernel_time), "%F %T") << "\n";
 
         // Launch the kernel to process pairs on the GPU
         process_pairs_kernel<<<gridSize, blockSize>>>(
@@ -190,6 +203,11 @@ void run_cuda_sf(
         if (err != cudaSuccess)
             std::cerr << "GPU " << gpu_id << " kernel execution error: " << cudaGetErrorString(err) << "\n";
 
+        const auto kernel_completed = std::chrono::system_clock::now();
+        const std::time_t kernel_completed_time = std::chrono::system_clock::to_time_t(kernel_completed);
+        std::cout << "GPU " << gpu_id << ": kernel completed at "
+              << std::put_time(std::localtime(&kernel_completed_time), "%F %T") << "\n";
+
         // Copy back the per-GPU output array 
         cudaMemcpy(per_gpu_output_data[gpu_id].data(),
                    d_output_data,
@@ -203,7 +221,14 @@ void run_cuda_sf(
 
 
     }
-
+    const auto gpu_loop_completed = std::chrono::system_clock::now();
+    const std::time_t gpu_loop_completed_time = std::chrono::system_clock::to_time_t(gpu_loop_completed);
+    std::cout << "Completed GPU loop at "
+              << std::put_time(std::localtime(&gpu_loop_completed_time), "%F %T") << "\n";
+    std::chrono::duration<double> elapsed = gpu_loop_completed - gpu_loop_start;
+    std::cout << "Total GPU processing time: " 
+            << std::fixed << std::setprecision(4) << elapsed.count() 
+            << " seconds\n";
 
 
     // After processing, combine results of all threads into the main output_data array

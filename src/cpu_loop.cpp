@@ -71,8 +71,8 @@ void run_cpu_sf(
     }
     std::cout << "\n";
 
-    // TODO: Remove this testing limit later.
-    N_part = std::min<std::size_t>(N_part, 100000);
+    // // TODO: Remove this testing limit later.
+    // N_part = std::min<std::size_t>(N_part, 100000);
 
 
     // Total number of unique pairs (i, j) with i < j: N * (N - 1) / 2.
@@ -95,6 +95,11 @@ void run_cpu_sf(
         // If only one thread, we can use the main output_data array directly
         thread_output_data.assign(1, output_data);
     }
+
+    const auto starting_cpu = std::chrono::system_clock::now();
+    const std::time_t starting_cpu_time = std::chrono::system_clock::to_time_t(starting_cpu);
+    std::cout << "CPU: starting processing at "
+              << std::put_time(std::localtime(&starting_cpu_time), "%F %T") << "\n";
 
     #pragma omp parallel num_threads(N_threads)
     {
@@ -124,7 +129,14 @@ void run_cpu_sf(
 
 
     }
-
+    const auto completed_cpu = std::chrono::system_clock::now();
+    const std::time_t completed_cpu_time = std::chrono::system_clock::to_time_t(completed_cpu);
+    std::cout << "CPU: completed processing at "
+              << std::put_time(std::localtime(&completed_cpu_time), "%F %T") << "\n";
+    std::chrono::duration<double> elapsed = completed_cpu - starting_cpu;
+    std::cout << "Total CPU processing time: " 
+            << std::fixed << std::setprecision(4) << elapsed.count() 
+            << " seconds\n";
 
 
     // After processing, combine results of all threads into the main output_data array
