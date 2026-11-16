@@ -71,6 +71,12 @@ void run_cpu_sf(
     }
     std::cout << "\n";
 
+    // square bin edges for distance comparisons to avoid sqrt calculations in the inner loop
+    std::vector<double> squared_bin_edges(N_bins);
+    for (int bin = 0; bin < N_bins; ++bin) {
+        squared_bin_edges[bin] = bin_edges[bin] * bin_edges[bin];
+    }
+
     // // TODO: Remove this testing limit later.
     // N_part = std::min<std::size_t>(N_part, 100000);
 
@@ -124,6 +130,7 @@ void run_cpu_sf(
                  N_components,
                  N_histograms,
                  properties,
+                 squared_bin_edges,
                  thread_output_data[thread_id],  // Use the current thread's output data
                  output_channels);
 

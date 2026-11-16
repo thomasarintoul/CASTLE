@@ -72,6 +72,12 @@ void run_cuda_sf(
     }
     std::cout << "\n";
 
+    // Create vector of squared bin edges for use in kernel computations (to avoid repeated sqrt calls)
+    std::vector<double> squared_bin_edges(N_bins);
+    for (int b = 0; b < N_bins; ++b) {
+        squared_bin_edges[b] = bin_edges[b] * bin_edges[b];
+    }
+
     // Convert InputProperty to DeviceProperty for device-side use
     std::vector<DeviceProperty> device_properties = conv_device_prop(properties);
     
@@ -120,11 +126,13 @@ void run_cuda_sf(
         // double* d_properties = nullptr;
         DeviceProperty* d_device_properties = nullptr;
         OutputChannel* d_output_channels = nullptr;
+        double* d_sq_bin_edges = nullptr;
 
         cudaMalloc(&d_input_data, input_data.size() * sizeof(double));
         cudaMalloc(&d_output_data, per_gpu_output_data[gpu_id].size() * sizeof(double));
         cudaMalloc(&d_device_properties, device_properties.size() * sizeof(DeviceProperty));
         cudaMalloc(&d_output_channels, output_channels.size() * sizeof(OutputChannel));
+        cudaMalloc(&d_sq_bin_edges, squared_bin_edges.size() * sizeof(double));
 
         cudaMemcpy(d_input_data, 
                    input_data.data(), 
@@ -141,6 +149,10 @@ void run_cuda_sf(
         cudaMemcpy(d_output_channels, 
                    output_channels.data(), 
                    output_channels.size() * sizeof(OutputChannel), 
+                   cudaMemcpyHostToDevice);
+        cudaMemcpy(d_sq_bin_edges, 
+                   squared_bin_edges.data(), 
+                   squared_bin_edges.size() * sizeof(double), 
                    cudaMemcpyHostToDevice);
         
         const auto copy_completed = std::chrono::system_clock::now();
@@ -188,6 +200,7 @@ void run_cuda_sf(
             d_device_properties,
             d_output_data,
             d_output_channels,
+            d_sq_bin_edges,
             output_channels.size()
         );
 
@@ -218,6 +231,7 @@ void run_cuda_sf(
         cudaFree(d_output_data);
         cudaFree(d_device_properties);
         cudaFree(d_output_channels);
+        cudaFree(d_sq_bin_edges);
 
 
     }

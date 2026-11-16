@@ -20,6 +20,7 @@ __global__ void process_pairs_kernel(std::size_t pair_start, std::size_t pair_en
                                      const DeviceProperty* properties, 
                                      double* output_data, 
                                      const OutputChannel* output_channels,
+                                     const double* sq_bin_edges,
                                      const std::size_t output_channel_count) 
 {
     
@@ -31,6 +32,7 @@ __global__ void process_pairs_kernel(std::size_t pair_start, std::size_t pair_en
     // Loop over pairs, calculate i and j from the pair index, and compute the structure function for each pair
     // const int storage_rows = N_histograms + 2;
     const double* bin_edges = output_data;
+    
     
     for (std::size_t pair_index = pair_start + thread_index; pair_index < pair_end; pair_index += stride) {
         
@@ -52,8 +54,8 @@ __global__ void process_pairs_kernel(std::size_t pair_start, std::size_t pair_en
 
 
         // Compute distance and other relevant quantities between particle i and j
-        double distance = calc_separation(pos_i, pos_j);
-        int bin_index = find_bin(distance, bin_edges, N_bins);
+        double distance_sq = calc_separation(pos_i, pos_j);
+        int bin_index = find_bin(distance_sq, sq_bin_edges, N_bins);
         if (bin_index < 0) {
             continue;
         }
@@ -74,12 +76,12 @@ __global__ void process_pairs_kernel(std::size_t pair_start, std::size_t pair_en
             const std::size_t* input_components = properties[input_property_index].components;
 
             // Compute the relevant quantity based on the statistic and order
-            double value = compute_statistic(input_data, N_part, i, j, input_components, statistic, order);
+            double value = compute_statistic(input_data, N_part, i, j, input_components, statistic, order, distance_sq);
             
             // Add the computed value to the appropriate histogram in the output_data array
             atomicAdd(&output_data[N_bins * (2 + output_histogram_index) + bin_index], value);
+            
         }
     }
 
-    __syncthreads();  // Ensure all threads have completed before exiting the kernel
 }

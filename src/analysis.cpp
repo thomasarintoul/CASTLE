@@ -8,18 +8,18 @@
 #include <iostream>
 #include <vector>
 
-HD double calc_separation(const std::array<double, 3>& pos_i, const std::array<double, 3>& pos_j) {
+HD float calc_separation(const std::array<double, 3>& pos_i, const std::array<double, 3>& pos_j) {
     /**
-     * Calculate the Euclidean distance between two 3D positions.
+     * Calculate the squared Euclidean distance between two 3D positions.
      *
      * @param pos_i: 3D position of particle i.
      * @param pos_j: 3D position of particle j.
      * @return: Euclidean distance between pos_i and pos_j.
      */
-    double dx = pos_i[0] - pos_j[0];
-    double dy = pos_i[1] - pos_j[1];
-    double dz = pos_i[2] - pos_j[2];
-    return std::sqrt(dx * dx + dy * dy + dz * dz);
+    float dx = pos_i[0] - pos_j[0];
+    float dy = pos_i[1] - pos_j[1];
+    float dz = pos_i[2] - pos_j[2];
+    return dx * dx + dy * dy + dz * dz;
 }
 
 HD std::array<double, 3> get_position_vector(const double* input_data, 
@@ -39,7 +39,7 @@ HD std::array<double, 3> get_position_vector(const double* input_data,
     return {input_data[N_part * 0 + i], input_data[N_part * 1 + i], input_data[N_part * 2 + i]};
 }
 
-HD std::array<double, 3> calc_sep_vector(const double* input_data, 
+HD std::array<float, 3> calc_sep_vector(const double* input_data, 
                                     const size_t N_part, 
                                     const size_t i, const size_t j) {
     /**
@@ -54,9 +54,9 @@ HD std::array<double, 3> calc_sep_vector(const double* input_data,
 
      // We assume that the first three components of input data are
      // position by construction in config.cpp
-    double dx = input_data[N_part * 0 + i] - input_data[N_part * 0 + j];
-    double dy = input_data[N_part * 1 + i] - input_data[N_part * 1 + j];
-    double dz = input_data[N_part * 2 + i] - input_data[N_part * 2 + j];
+    float dx = input_data[N_part * 0 + i] - input_data[N_part * 0 + j];
+    float dy = input_data[N_part * 1 + i] - input_data[N_part * 1 + j];
+    float dz = input_data[N_part * 2 + i] - input_data[N_part * 2 + j];
 
     return {dx, dy, dz};
 }
@@ -86,7 +86,8 @@ HD double compute_statistic(const double* input_data,
                          const size_t j,
                          const std::size_t* input_components,
                          const Statistic statistic,
-                         const int order) {
+                         const int order,
+                         const float distance_sq) {
     /**
      * Compute the specified statistic for a given pair of particles and a specific property.
      * @param input_data            : 1D vector containing the input data (flattened 2D array).
@@ -99,6 +100,8 @@ HD double compute_statistic(const double* input_data,
      * @return                      : The computed statistic value for the given pair of particles and property.
      */
 
+    double stat_val;
+
     // Select appropriate computation based on the statistic type
     switch (statistic) {
         case Statistic::ScalarDifference: {
@@ -106,8 +109,11 @@ HD double compute_statistic(const double* input_data,
             double value_i = input_data[N_part * input_components[0] + i];
             double value_j = input_data[N_part * input_components[0] + j];
 
+            // calculate the absolute difference
             double difference = std::abs(value_i - value_j);
-            return std::pow(difference, order);
+
+            stat_val = difference;
+            break;
         }
         case Statistic::VectorDifference: {
             // For vector properties, compute the Euclidean distance between the two vectors raised to the specified order
@@ -123,7 +129,8 @@ HD double compute_statistic(const double* input_data,
             double dy = value_i_y - value_j_y;
             double dz = value_i_z - value_j_z;
 
-            return std::pow(std::sqrt(dx * dx + dy * dy + dz * dz), order);
+            stat_val = std::sqrt(dx * dx + dy * dy + dz * dz);
+            break;
         }
         case Statistic::Parallel: {
             // For parallel statistics, compute the component of the difference along the separation vector raised to the specified order
@@ -136,20 +143,21 @@ HD double compute_statistic(const double* input_data,
             double value_j_z = input_data[N_part * input_components[2] + j];
 
             // Compute the separation vector
-            std::array<double, 3> sep_vector = calc_sep_vector(input_data, N_part, i, j);
+            std::array<float, 3> sep_vector = calc_sep_vector(input_data, N_part, i, j);
 
             // Compute the dot product of the difference vector and the separation vector
             double dot_product = (value_i_x - value_j_x) * sep_vector[0] +
                                  (value_i_y - value_j_y) * sep_vector[1] +
                                  (value_i_z - value_j_z) * sep_vector[2];
             // Compute the magnitude of the separation vector
-            double sep_magnitude = std::sqrt(sep_vector[0] * sep_vector[0] + 
-                                             sep_vector[1] * sep_vector[1] + 
-                                             sep_vector[2] * sep_vector[2]);
+            // double sep_magnitude = std::sqrt(sep_vector[0] * sep_vector[0] + 
+            //                                  sep_vector[1] * sep_vector[1] + 
+            //                                  sep_vector[2] * sep_vector[2]);
+            float sep_magnitude = std::sqrt(distance_sq); // Use the squared distance to avoid recalculating the separation vector magnitude
 
             // Compute the parallel component
-            double parallel_component = dot_product / sep_magnitude;
-            return std::pow(parallel_component, order);
+            stat_val = dot_product / sep_magnitude;
+            break;
         }
         case Statistic::Perpendicular: {
             // For perpendicular statistics, compute the component of the difference perpendicular to the separation vector raised to the specified order
@@ -162,7 +170,7 @@ HD double compute_statistic(const double* input_data,
             double value_j_z = input_data[N_part * input_components[2] + j];
 
             // Compute the separation vector
-            std::array<double, 3> sep_vector = calc_sep_vector(input_data, N_part, i, j);
+            std::array<float, 3> sep_vector = calc_sep_vector(input_data, N_part, i, j);
         
             // Compute the difference vector
             std::array<double, 3> diff_vector = {value_i_x - value_j_x, value_i_y - value_j_y, value_i_z - value_j_z};
@@ -171,16 +179,23 @@ HD double compute_statistic(const double* input_data,
             std::array<double, 3> normal_vector = {-sep_vector[1], sep_vector[0], 0.0};
 
             // Compute perpendicular component
-            double perpendicular_component = std::sqrt(
+            stat_val = std::sqrt(
                 (diff_vector[0] * normal_vector[0]) * (diff_vector[0] * normal_vector[0]) +
                 (diff_vector[1] * normal_vector[1]) * (diff_vector[1] * normal_vector[1]) +
                 (diff_vector[2] * normal_vector[2]) * (diff_vector[2] * normal_vector[2])
             );
-            return std::pow(perpendicular_component, order);
+            break;
         }
         default:
-            return 0.0;
+            stat_val = 0.0;
     }
+
+    if (order > 1) {
+        order == 2 ? stat_val *= stat_val :
+        order == 3 ? stat_val *= stat_val * stat_val :
+        stat_val = std::pow(stat_val, order);
+    }
+    return stat_val;
 }
 
 
@@ -224,6 +239,7 @@ H void process_pairs(std::size_t pair_start, std::size_t pair_end,
                    const int N_components,
                    const int N_histograms,
                    const std::vector<InputProperty>& properties,
+                   const std::vector<double>& sq_bin_edges,
                    std::vector<double>& output_data,
                    std::vector<OutputChannel>& output_channels) {
 
@@ -259,8 +275,8 @@ H void process_pairs(std::size_t pair_start, std::size_t pair_end,
 
 
 
-        double distance = calc_separation(pos_i, pos_j);
-        int bin_index = find_bin(distance, bin_edges, N_bins); //TODO: define bin_edges and N_bins within this scope
+        float distance_sq = calc_separation(pos_i, pos_j);
+        int bin_index = find_bin(distance_sq, sq_bin_edges.data(), N_bins);
         if (bin_index < 0) {
             continue;
         }
@@ -281,7 +297,7 @@ H void process_pairs(std::size_t pair_start, std::size_t pair_end,
             const std::size_t* input_components = properties[input_property_index].components.data();
 
             // Compute the relevant quantity based on the statistic and order
-            double value = compute_statistic(input_data, N_part, i, j, input_components, statistic, order);
+            double value = compute_statistic(input_data, N_part, i, j, input_components, statistic, order, distance_sq);
             
             // Add the computed value to the appropriate histogram in the output_data array
             output_data[N_bins * (2 + output_histogram_index) + bin_index] += value;
