@@ -1,0 +1,39 @@
+[input]
+positions = "/home/cosmos/c23052501/AnisoThermCond_Analysis/full_halo_struc_func/full_halo_sf_in_no_cool/sf_input_L5_sur5_tng_pos_no_cool.bin"
+
+[[field]]
+name       = "velocity"
+file       = "/home/cosmos/c23052501/AnisoThermCond_Analysis/full_halo_struc_func/full_halo_sf_in_no_cool/sf_input_L5_sur5_tng_vel_no_cool.bin"
+components = 3                                        # 3 = vector, 1 = scalar
+statistics = ["vector", "parallel", "perpendicular"]
+orders     = [2]                                   # -> 6 histograms
+
+[[field]]
+name       = "T"
+file       = "/home/cosmos/c23052501/AnisoThermCond_Analysis/full_halo_struc_func/full_halo_sf_in_no_cool/sf_input_L5_sur5_tng_T_no_cool.bin"
+components = 1
+orders     = [2]                                      # scalars: magnitude only
+
+[[field]]
+name       = "n_H"
+file       = "/home/cosmos/c23052501/AnisoThermCond_Analysis/full_halo_struc_func/full_halo_sf_in_no_cool/sf_input_L5_sur5_tng_n_H_no_cool.bin"
+components = 1
+orders     = [2]
+
+[[field]]
+name       = "Z"
+file       = "/home/cosmos/c23052501/AnisoThermCond_Analysis/full_halo_struc_func/full_halo_sf_in_no_cool/sf_input_L5_sur5_tng_z_no_cool.bin"
+components = 1
+orders     = [2]
+
+[[field]]
+name       = "P_th"
+file       = "/home/cosmos/c23052501/AnisoThermCond_Analysis/full_halo_struc_func/full_halo_sf_in_no_cool/sf_input_L5_sur5_tng_P-KB_no_cool.bin"
+components = 1
+orders     = [2]
+
+[[field]]
+name       = "B"
+file       = "/home/cosmos/c23052501/AnisoThermCond_Analysis/full_halo_struc_func/full_halo_sf_in_no_cool/sf_input_L5_sur5_tng_B_no_cool.bin"
+components = 1
+orders     = [2]
