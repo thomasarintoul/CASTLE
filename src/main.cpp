@@ -13,6 +13,7 @@
 #include "io.cpp"
 #include "data.cpp"
 #include "config.cpp"
+// Function to configure based on compilation flags
 #ifndef __CUDACC__
 #include "analysis.cpp"
 #include "cpu_loop.cpp"
