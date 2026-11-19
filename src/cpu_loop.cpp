@@ -77,8 +77,6 @@ void run_cpu_sf(
         squared_bin_edges[bin] = bin_edges[bin] * bin_edges[bin];
     }
 
-    // // TODO: Remove this testing limit later.
-    // N_part = std::min<std::size_t>(N_part, 100000);
 
 
     // Total number of unique pairs (i, j) with i < j: N * (N - 1) / 2.

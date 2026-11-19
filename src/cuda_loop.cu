@@ -81,8 +81,6 @@ void run_cuda_sf(
     // Convert InputProperty to DeviceProperty for device-side use
     std::vector<DeviceProperty> device_properties = conv_device_prop(properties);
     
-    // // TODO: Remove this testing limit later.
-    // N_part = std::min<std::size_t>(N_part, 100000);
     
     
     // Total number of unique pairs (i, j) with i < j: N * (N - 1) / 2.
