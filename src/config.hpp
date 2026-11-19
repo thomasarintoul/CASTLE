@@ -4,7 +4,8 @@
 #include <string>
 #include <vector>
 #include <iostream>
-// #include "toml.hpp"
+#include "data.hpp"
+#include "toml.hpp"
 
 
 
@@ -44,3 +45,19 @@ int calc_N_components(toml::array& fields);
 * @return:                 Total number of histograms.
 */
 int calc_N_histograms(toml::array& fields);
+
+
+struct Core_Data {
+    std::vector<double> input_data;
+    std::size_t N_part;
+    int N_components;
+    int N_histograms;
+    std::vector<InputProperty> properties;
+    std::vector<double> output_data;
+    std::vector<OutputChannel> output_channels;
+    toml::table config_analysis;
+    toml::table config_properties;
+    toml::table config_output;
+};
+
+Core_Data configure_analysis(int argc, char* argv[]);

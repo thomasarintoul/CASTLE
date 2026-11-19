@@ -57,4 +57,6 @@ inline void Properties(std::vector<InputProperty>& properties, const toml::array
 
 inline std::vector<OutputChannel> map_output_channels(const std::vector<InputProperty>& properties, const toml::array& fields);
 
+void populate_input_data(std::vector<double>& input_data, const std::vector<InputProperty>& properties, std::size_t N_part);
+
 std::vector<DeviceProperty> conv_device_prop(const std::vector<InputProperty>& properties);
