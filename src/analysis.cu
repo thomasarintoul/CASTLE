@@ -30,10 +30,7 @@ __global__ void process_pairs_kernel(std::size_t pair_start, std::size_t pair_en
     const std::size_t stride = blockDim.x * gridDim.x;
 
     // Loop over pairs, calculate i and j from the pair index, and compute the structure function for each pair
-    // const int storage_rows = N_histograms + 2;
-    const double* bin_edges = output_data;
-    
-    
+    // const int storage_rows = N_histograms + 2; 
     for (std::size_t pair_index = pair_start + thread_index; pair_index < pair_end; pair_index += stride) {
         
         
