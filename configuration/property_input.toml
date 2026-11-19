@@ -1,39 +1,39 @@
 [input]
-positions = "/home/cosmos/c23052501/AnisoThermCond_Analysis/full_halo_struc_func/full_halo_sf_in/sf_input_L6_sur5_tng_pos.bin"
+positions = "/home/cosmos/c23052501/AnisoThermCond_Analysis/full_halo_struc_func/full_halo_sf_in/sf_input_L6_sur1_tng_pos.bin"
 
-[[field]]
-name       = "velocity"
-file       = "/home/cosmos/c23052501/AnisoThermCond_Analysis/full_halo_struc_func/full_halo_sf_in/sf_input_L6_sur5_tng_vel.bin"
-components = 3                                        # 3 = vector, 1 = scalar
-statistics = ["vector", "parallel", "perpendicular"]
-orders     = [2]                                   # -> 6 histograms
+#[[field]]
+#name       = "velocity"
+#file       = "/home/cosmos/c23052501/AnisoThermCond_Analysis/full_halo_struc_func/full_halo_sf_in/sf_input_L6_sur1_tng_vel.bin"
+#components = 3                                        # 3 = vector, 1 = scalar
+#statistics = ["vector", "parallel", "perpendicular"]
+#orders     = [2]                                   # -> 6 histograms
 
 [[field]]
 name       = "T"
-file       = "/home/cosmos/c23052501/AnisoThermCond_Analysis/full_halo_struc_func/full_halo_sf_in/sf_input_L6_sur5_tng_T.bin"
+file       = "/home/cosmos/c23052501/AnisoThermCond_Analysis/full_halo_struc_func/full_halo_sf_in/sf_input_L6_sur1_tng_T.bin"
 components = 1
 orders     = [2]                                      # scalars: magnitude only
 
-[[field]]
-name       = "n_H"
-file       = "/home/cosmos/c23052501/AnisoThermCond_Analysis/full_halo_struc_func/full_halo_sf_in/sf_input_L6_sur5_tng_n_H.bin"
-components = 1
-orders     = [2]
+#[[field]]
+#name       = "n_H"
+#file       = "/home/cosmos/c23052501/AnisoThermCond_Analysis/full_halo_struc_func/full_halo_sf_in/sf_input_L6_sur1_tng_n_H.bin"
+#components = 1
+#orders     = [2]
 
-[[field]]
-name       = "Z"
-file       = "/home/cosmos/c23052501/AnisoThermCond_Analysis/full_halo_struc_func/full_halo_sf_in/sf_input_L6_sur5_tng_z.bin"
-components = 1
-orders     = [2]
+#[[field]]
+#name       = "Z"
+#file       = "/home/cosmos/c23052501/AnisoThermCond_Analysis/full_halo_struc_func/full_halo_sf_in/sf_input_L6_sur1_tng_z.bin"
+#components = 1
+#orders     = [2]
 
-[[field]]
-name       = "P_th"
-file       = "/home/cosmos/c23052501/AnisoThermCond_Analysis/full_halo_struc_func/full_halo_sf_in/sf_input_L6_sur5_tng_P-KB.bin"
-components = 1
-orders     = [2]
+#[[field]]
+#name       = "P_th"
+#file       = "/home/cosmos/c23052501/AnisoThermCond_Analysis/full_halo_struc_func/full_halo_sf_in/sf_input_L6_sur1_tng_P-KB.bin"
+#components = 1
+#orders     = [2]
 
-[[field]]
-name       = "B"
-file       = "/home/cosmos/c23052501/AnisoThermCond_Analysis/full_halo_struc_func/full_halo_sf_in/sf_input_L6_sur5_tng_B.bin"
-components = 1
-orders     = [2]
+#[[field]]
+#name       = "B"
+#file       = "/home/cosmos/c23052501/AnisoThermCond_Analysis/full_halo_struc_func/full_halo_sf_in/sf_input_L6_sur1_tng_B.bin"
+#components = 1
+#orders     = [2]

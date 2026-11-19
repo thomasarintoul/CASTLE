@@ -10,7 +10,7 @@ random_seed = 42
 [analysis]
 normalise = false
 method = "full"
-n_threads = 4
+n_threads = 20
 n_gpus = 1
 
 [analysis.binning]
