@@ -2,3 +2,4 @@ output/*
 TSF_subset/*
 *.out
 *.bin
+build/*
