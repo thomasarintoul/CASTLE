@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include "toml.hpp"
+#include "config.hpp"
 // #include "io.cpp"
 // #include "data.cpp"
 
@@ -165,21 +166,6 @@ int calc_N_histograms(const toml::array& fields){
     }
     return N_histograms;
 }
-
-
-struct Core_Data{
-    std::vector<double> input_data;
-    std::size_t N_part;
-    int N_components;
-    int N_histograms;
-    std::vector<InputProperty> properties;
-    std::vector<double> output_data;
-    std::vector<OutputChannel> output_channels;
-    toml::table config_analysis;
-    toml::table config_properties;
-    toml::table config_output;
-};
-
 
 
 
@@ -374,115 +360,3 @@ Core_Data configure_analysis(int argc, char* argv[]) {
     
     return core_data;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//     /// For each entry in fields
-//     for (const toml::node& field_node : *fields) {
-
-//         // access it as a table
-//         const toml::table* field = field_node.as_table();
-
-//         // error if not a table
-//         if (!field) {
-//             std::cerr << "Expected every field entry to be a table.\n";
-//             return 1;
-//         }
-
-//         /// pull out each defined property for the property
-//         // -- property name
-//         const auto name = field->get_as<std::string>("name");
-//         // -- binary file containing the property values
-//         const auto filename = field->get_as<std::string>("file");
-//         // -- number of components for the property (e.g., 1 for scalar, 3 for vector)
-//         const auto components = field->get_as<int64_t>("components");
-//         // -- array of statistics to compute for the property (e.g., VSF, VSF perp, VSF parallel)
-//         const toml::array* statistics = field->get_as<toml::array>("statistics");
-//         // -- array of orders to compute for the property (e.g., 2nd order)
-//         const toml::array* orders = field->get_as<toml::array>("orders");
-
-//         // error if any of the required properties are missing
-//         if (!name || !filename || !components) {
-//             std::cerr << "Each field must contain name, file, and components.\n";
-//             return 1;
-//         }
-
-//         // error if the number of components is less than 1
-//         const int64_t field_components = components->get();
-//         if (field_components < 1) {
-//             std::cerr << "Field " << name->get() << " must have at least one component.\n";
-//             return 1;
-//         }
-
-//         // Load the binary data for the field and populate the corresponding columns in the input_data array
-//         const std::vector<double> field_values = load_binary_doubles(filename->get(), // filename pulled from toml config
-//                                                                      N_part * static_cast<std::size_t>(field_components)); // expected number of values based on the number of particles and components
-
-//         // Populate the input_data array with the loaded field values
-//         for (std::size_t particle = 0; particle < N_part; ++particle) {
-//             for (std::size_t component = 0;  // For component
-//                  component < static_cast<std::size_t>(field_components); // in range N_components for this field
-//                  ++component) { // incrementing by 1
-//                 // Set value for particle j and component k in the input_data array
-//                 input_data[particle][component_offset + component] =
-//                     field_values[particle * static_cast<std::size_t>(field_components) + component];
-//             }
-//         }
-//         // increase the component offset by the number of components already allocated to input array
-//         component_offset += static_cast<std::size_t>(field_components);
-
-//         // Print details about the field to the console for verification
-//         std::cout << "Field details:\n";
-//         std::cout << "Name: " << *name << "\n";
-//         std::cout << "File: " << *filename << "\n";
-//         std::cout << "Components: " << field_components << "\n";
-//         std::cout << "Statistics:";
-//         if (statistics) {
-//             for (const toml::node& statistic : *statistics) {
-//                 if (const auto value = statistic.value<std::string>()) {
-//                     std::cout << " " << *value;
-//                 }
-//             }
-//         }
-//         std::cout << "\nOrders:";
-//         if (orders) {
-//             for (const toml::node& order : *orders) {
-//                 if (const auto value = order.value<int64_t>()) {
-//                     std::cout << " " << *value;
-//                 }
-//             }
-//         }
-//         std::cout << "\n";
-
-
-//     }
-
-//     // Verify that the total number of components matches the expected number based on the configuration
-//     if (component_offset != static_cast<std::size_t>(N_components)) {
-//         std::cerr << "Loaded field components do not match N_components.\n";
-//         return 1;
-//     }
-//     std::cout << "Total number of components: " << N_components << "\n";
-
-//     std::cout << "Total number of histograms: " << N_histograms << "\n";
-//     std::cout << "Loaded input array: " << N_part << " x " << N_components << "\n";
-//     std::cout << "Allocated output array: 200 x " << N_histograms << "\n";
-
-
-
-//     return 0;
-// }
