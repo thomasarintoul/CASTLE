@@ -1,5 +1,5 @@
 # `CASTLE`: Characterisation of Astrophysical Structure and Turbulence in Localised Environments
-Written by: Thomas Rintoul - PhD Student in Computational Astrophysics at Cardiff University.
+Written by: Thomas Rintoul - PhD Student in Computational Astrophysics, Cardiff University.
 
 ## What is CASTLE?
 
